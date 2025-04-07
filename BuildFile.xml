@@ -1,0 +1,7 @@
+<use name="fastjet" />
+<use name="fastjet-contrib" />
+<flags CXXFLAGS="-I$(FASTJET_CONTRIB_BASE)/include" />
+<flags LDFLAGS="-L$(FASTJET_CONTRIB_BASE)/lib -lfastjetcontribfragile" />
+<export>
+    <lib name="XConeReclustering" />
+</export>
