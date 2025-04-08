@@ -1,34 +1,18 @@
 import argparse
 import os
-
-import subprocess
-
-def get_fastjet_contrib_base():
-    try:
-        info = subprocess.check_output(["scram", "tool", "info", "fastjet-contrib"], text=True)
-        for line in info.splitlines():
-            if line.startswith("FASTJET_CONTRIB_BASE"):
-                return line.split("=")[1].strip()
-    except Exception as e:
-        print(f"Could not get fastjet-contrib base: {e}")
-        return None
-
-fjc_base = get_fastjet_contrib_base()
-if fjc_base:
-    os.environ["FASTJET_CONTRIB_BASE"] = fjc_base
-    os.environ["CPLUS_INCLUDE_PATH"] = fjc_base + "/include:" + os.environ.get("CPLUS_INCLUDE_PATH", "")
-    os.environ["LD_LIBRARY_PATH"] = fjc_base + "/lib:" + os.environ.get("LD_LIBRARY_PATH", "")
-else:
-    raise RuntimeError("fastjet-contrib not found via scram tool info.")
-
-# os.environ["FASTJET_CONTRIB_BASE"] = "/cvmfs/cms.cern.ch/el9_amd64_gcc12/external/fastjet-contrib/1.051-6b2cbf7b2399385490e165663710d5e0"
-# os.environ["CPLUS_INCLUDE_PATH"] = os.environ["FASTJET_CONTRIB_BASE"] + "/include:" + os.environ.get("CPLUS_INCLUDE_PATH", "")
-# os.environ["LD_LIBRARY_PATH"] = os.environ["FASTJET_CONTRIB_BASE"] + "/lib:" + os.environ.get("LD_LIBRARY_PATH", "")
-
-# # Agregar la ruta de XConeReclustering a las rutas de búsqueda
-# sys.path.append(os.path.join(os.environ['CMSSW_BASE'], 'src', 'XConeReclustering'))
-
 import ROOT
+
+# Verify if FASTJET_CONTRIB_BASE is set
+fjc_base = os.environ.get("FASTJET_CONTRIB_BASE")
+if not fjc_base:
+    raise RuntimeError("FASTJET_CONTRIB_BASE is not set. Ensure the environment is configured correctly.")
+
+# Agregar la ruta de los headers al intérprete de ROOT
+ROOT.gSystem.AddIncludePath(f'-I{fjc_base}/include')
+
+
+
+
 # Input argument parsing
 parser = argparse.ArgumentParser(description="Process PFNANO with XCone algo for MC or Data.")
 parser.add_argument("--input", required=True, help="Input file or directory")
@@ -51,11 +35,6 @@ isMC = args.isMC
 # ROOT.gSystem.Load("$LCIO/lib/libRivet.so")
 # ROOT.gSystem.Load("$LCIO/lib/libHepMC.so")
 # ROOT.gSystem.Load("$LCIO/lib/libfastjet.so")
-
-# ROOT.gInterpreter.Declare('#include "Particle.h"')
-# ROOT.gInterpreter.Declare('#include "/afs/cern.ch/user/c/cmunozdi/Analysis/GeneratePFNanos/CMSSW_13_0_13/src/XConeReclustering/selection_helpers_BoostedTopQuark.h"') ##RUN LOCAL
-if fjc_base:
-    ROOT.gSystem.AddIncludePath(f'-I{fjc_base}/include')
 
 ROOT.gInterpreter.Declare('#include "selection_helpers_BoostedTopQuark.h"') ##RUN CRAB
 verbosity = ROOT.Experimental.RLogScopedVerbosity(ROOT.Detail.RDF.RDFLogChannel(), ROOT.Experimental.ELogLevel.kInfo)

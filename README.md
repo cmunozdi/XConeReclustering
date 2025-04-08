@@ -53,5 +53,9 @@ scram b -j 10
 
 ## Run locally XCone:
 ```bash
-python3 ProcessNanoToBoostedTopQuarkWithXCone.py --input `inputfile or inputdirectory` --output `output root file` (--isMC if input is simualtion)
-``` 
+cmsenv
+source env_xcone.sh
+python3 ProcessNanoToBoostedTopQuarkWithXCone.py --input <inputfile or inputdirectory> --output <output root file> --isMC
+```
+Replace `<inputfile or inputdirectory>` with the path to your input file or directory, and `<output root file>` with the desired name for the output ROOT file, and write `--isMC` only for MC.
+ 
