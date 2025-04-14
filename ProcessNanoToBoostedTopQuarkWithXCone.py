@@ -32,6 +32,9 @@ else:
 output_file = args.output
 isMC = args.isMC
 
+# Crear un nombre de archivo para rdf_runs basado en args.output
+output_file_runs = args.output.replace(".root", "_runs.root")
+
 # ROOT.gSystem.Load("$LCIO/lib/libRivet.so")
 # ROOT.gSystem.Load("$LCIO/lib/libHepMC.so")
 # ROOT.gSystem.Load("$LCIO/lib/libfastjet.so")
@@ -41,7 +44,10 @@ verbosity = ROOT.Experimental.RLogScopedVerbosity(ROOT.Detail.RDF.RDFLogChannel(
 
 ROOT.ROOT.EnableImplicitMT()
 # Creates the RDataFrame
+rdf_runs = ROOT.RDataFrame("Runs", input_files)
+rdf_runs.Snapshot('Runs', output_file_runs)
 rdf = ROOT.RDataFrame("Events", input_files)
+# rdf = rdf.Range(10)
 
 # Lepton selection: select in the kinematic region of interest
 rdf = rdf.Define('muon', 'triggerLepton(Muon_pt, Muon_eta, Muon_phi, Muon_pdgId, Jet_eta, Jet_phi, true)') \
@@ -95,15 +101,27 @@ if isMC:
 #     if not isinstance(col, str):
 #         raise TypeError(f"Each element in columns must be a string. Found: {type(col)}")
 
+
+# opts = ROOT.RDF.RSnapshotOptions()
+# opts.fMode = "RECREATE"
+# opts.fOverwriteIfExists = True
+
 # Create a snapshot with the selected columns
-rdf.Snapshot('Events', output_file)#, columns)
+rdf.Snapshot('Events', output_file)#, "", opts)#, columns)
+# output_file.WriteObject(rdf, "Events")
+# output_file.WriteObject(rdf_runs, "Runs")
+# Copiar el árbol "Runs" desde el primer input file
+# f_in = ROOT.TFile.Open(input_files[0])
+# t_runs = f_in.Get("Runs")
+# f_out = ROOT.TFile.Open(output_file, "UPDATE")
+# if t_runs:
+#     f_out.cd()
+#     t_runs.CloneTree(-1, "fast").Write("Runs")
+# f_out.Close()
+# f_in.Close()
 
-opts = ROOT.RDF.RSnapshotOptions()
-opts.fMode = "UPDATE"
-
-rdf_runs = ROOT.RDataFrame("Runs", input_files)
-rdf_runs.Snapshot('Runs', output_file, "", opts)
+# rdf_runs.Snapshot('Runs', output_file, "", opts)
 
 ROOT.ROOT.DisableImplicitMT()
 
-print(f"Processing completed. Output file: {output_file}")
+print(f"Processing completed. Output file: {args.output}")
