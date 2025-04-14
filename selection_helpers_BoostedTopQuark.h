@@ -31,7 +31,7 @@ using rvec_f = const RVec<float>;
 using rvec_i = const RVec<int>;
 using rvec_b = const RVec<bool>;
 
-bool debug = false;
+extern bool debug;
 
 /**
  * @brief Returns the particle's mass from its pdgId
@@ -49,25 +49,25 @@ inline double get_mass(int pdgId) {
 }
 
 
-/**
-    @short select gen candidates (for now only charged)
-*/
-rvec_b selectGenCandidates(const rvec_i &pdgId) {
+// /**
+//     @short select gen candidates (for now only charged)
+// */
+// rvec_b selectGenCandidates(const rvec_i &pdgId) {
 
-    std::vector<bool> isValidCand(pdgId.size(),false);
+//     std::vector<bool> isValidCand(pdgId.size(),false);
 
-    //select charged particles only
-    for(size_t i=0; i<pdgId.size(); i++) {
+//     //select charged particles only
+//     for(size_t i=0; i<pdgId.size(); i++) {
 
-        if( !Rivet::PID::isCharged(pdgId[i]) ) continue;
+//         if( !Rivet::PID::isCharged(pdgId[i]) ) continue;
 
-        //... do other selections here
+//         //... do other selections here
 
-        isValidCand[i]=0;
-    }
+//         isValidCand[i]=0;
+//     }
 
-    return rvec_b(isValidCand.begin(), isValidCand.end());
-}
+//     return rvec_b(isValidCand.begin(), isValidCand.end());
+// }
 
 
 /**
@@ -84,7 +84,7 @@ struct JetAntikTReclus {
     float ptmin;
 };
 
-JetAntikTReclus buildJets(const ROOT::VecOps::RVec<float> &pt,
+inline JetAntikTReclus buildJets(const ROOT::VecOps::RVec<float> &pt,
                   const ROOT::VecOps::RVec<float> &eta,
                   const ROOT::VecOps::RVec<float> &phi,
                   const ROOT::VecOps::RVec<int> &pdgId,
@@ -129,7 +129,7 @@ struct Lepton{
 
 };
 
-Lepton triggerLepton(const rvec_f &pt_le, const rvec_f &eta_le, const rvec_f &phi_le, const rvec_i &pdgId_le, const rvec_f &ak4_eta, const rvec_f &ak4_phi, bool isMuon = true){
+inline Lepton triggerLepton(const rvec_f &pt_le, const rvec_f &eta_le, const rvec_f &phi_le, const rvec_i &pdgId_le, const rvec_f &ak4_eta, const rvec_f &ak4_phi, bool isMuon = true){
     Lepton lepton;
     if(isMuon){
         //Selection for muon: pt > 60, |eta| < 2.4. Also, has not to be inside a AK4 jet and has a pt_rel<40 being pt_rel the relative pt of the muon in the orthogonal direction to the jet
@@ -176,7 +176,7 @@ Lepton triggerLepton(const rvec_f &pt_le, const rvec_f &eta_le, const rvec_f &ph
     return lepton;
 }
 
-Lepton CombineLeptons(const Lepton& muons, const Lepton& electrons) {
+inline Lepton CombineLeptons(const Lepton& muons, const Lepton& electrons) {
     Lepton combined;
 
     // Combinar los vectores de propiedades
@@ -199,7 +199,7 @@ Lepton CombineLeptons(const Lepton& muons, const Lepton& electrons) {
 }
 
 //Funtion to calculate the missing transverse momentum (if we return -sqrt((px)^2+(py)^2) we get the missing energy, just in the opposite direction of the rest of PFCands)
-double Get_pTmiss (const rvec_f &pt, const rvec_f &phi){
+inline double Get_pTmiss (const rvec_f &pt, const rvec_f &phi){
     double px = 0.0;
     double py = 0.0;
     for(size_t i=0; i<pt.size(); i++){
@@ -269,7 +269,7 @@ struct XConeReclusteredJets {
 
 
 /*BUILDING XCONE RECLUSTERING FUNCTIONS*/
-void initPlugin(std::unique_ptr<NjettinessPlugin> & ptr, int N, float R0, float beta, bool usePseudoXCone){
+inline void initPlugin(std::unique_ptr<NjettinessPlugin> & ptr, int N, float R0, float beta, bool usePseudoXCone){
     if(usePseudoXCone){
         ptr.reset(new PseudoXConePlugin(N, R0, beta));
     } else {
@@ -277,7 +277,7 @@ void initPlugin(std::unique_ptr<NjettinessPlugin> & ptr, int N, float R0, float 
     }
 }
 
-XConeReclusteredJets buildXConeJets(const rvec_f &pt, const rvec_f &eta, const rvec_f &phi, const rvec_f &mass, const rvec_i &pdgId, int NJets = 2, float RJets = 1.2, float BetaJets = 2.0, float ptminJets = 400., float etamaxJets = 2.4, int NSubJets = 3, float RSubJets = 0.4, float BetaSubJets = 2., float ptminSubJets = 30., float etamaxSubJets = 2.5, bool doLeptonSpecific = true, bool usePseudoXCone = false){
+inline XConeReclusteredJets buildXConeJets(const rvec_f &pt, const rvec_f &eta, const rvec_f &phi, const rvec_f &mass, const rvec_i &pdgId, int NJets = 2, float RJets = 1.2, float BetaJets = 2.0, float ptminJets = 350., float etamaxJets = 2.4, int NSubJets = 3, float RSubJets = 0.4, float BetaSubJets = 2., float ptminSubJets = 30., float etamaxSubJets = 2.5, bool doLeptonSpecific = true, bool usePseudoXCone = false){
 
     // const reco::Candidate *lepton(nullptr);
     std::vector<fastjet::PseudoJet>::iterator lepton_iter;// = _psj.end();
@@ -757,107 +757,107 @@ XConeReclusteredJets buildXConeJets(const rvec_f &pt, const rvec_f &eta, const r
 
 
 
-/**
-    @short checks for opposite charge, compatible flavor quark pairs for W boson candidates
-*/
-rvec_b dijetCands(const rvec_i &pdgId, const rvec_f &pt, const rvec_f &eta, const rvec_f &phi, float m0=80.4, float deltam=31.0)
-{
-    std::vector<bool> isValidCand(pdgId.size(), false);
+// /**
+//     @short checks for opposite charge, compatible flavor quark pairs for W boson candidates
+// */
+// rvec_b dijetCands(const rvec_i &pdgId, const rvec_f &pt, const rvec_f &eta, const rvec_f &phi, float m0=80.4, float deltam=31.0)
+// {
+//     std::vector<bool> isValidCand(pdgId.size(), false);
 
-    // Loop over the list of quarks
-    for (size_t i = 0; i < pdgId.size(); i++) {
+//     // Loop over the list of quarks
+//     for (size_t i = 0; i < pdgId.size(); i++) {
 
-        // Select light quarks (u, d, s, c)
-        if (!(abs(pdgId[i]) == 1 || abs(pdgId[i]) == 2 || abs(pdgId[i]) == 3 || abs(pdgId[i]) == 4)) continue;
+//         // Select light quarks (u, d, s, c)
+//         if (!(abs(pdgId[i]) == 1 || abs(pdgId[i]) == 2 || abs(pdgId[i]) == 3 || abs(pdgId[i]) == 4)) continue;
 
-        // Try to make a pair with charge +-1
-        for (size_t j = i + 1; j < pdgId.size(); j++) {
+//         // Try to make a pair with charge +-1
+//         for (size_t j = i + 1; j < pdgId.size(); j++) {
 
-            // Ensure the second quark is also light
-            if (!(abs(pdgId[j]) == 1 || abs(pdgId[j]) == 2 || abs(pdgId[j]) == 3 || abs(pdgId[j]) == 4)) continue;
+//             // Ensure the second quark is also light
+//             if (!(abs(pdgId[j]) == 1 || abs(pdgId[j]) == 2 || abs(pdgId[j]) == 3 || abs(pdgId[j]) == 4)) continue;
 
-            // Require opposite pdgId sign (q+anti-q)
-            if (pdgId[i] * pdgId[j] > 0) continue;
+//             // Require opposite pdgId sign (q+anti-q)
+//             if (pdgId[i] * pdgId[j] > 0) continue;
 
-            //assign quark mass
-            float mass1(get_mass(pdgId[i]));
-//             if(abs(pdgId[i])==1) mass1=0.00470;
-//             if(abs(pdgId[i])==2) mass1=0.00216;
-//             if(abs(pdgId[i])==3) mass1=0.09350;
-//             if(abs(pdgId[i])==4) mass1=1.27300;
-            if(mass1<0) continue;
+//             //assign quark mass
+//             float mass1(get_mass(pdgId[i]));
+// //             if(abs(pdgId[i])==1) mass1=0.00470;
+// //             if(abs(pdgId[i])==2) mass1=0.00216;
+// //             if(abs(pdgId[i])==3) mass1=0.09350;
+// //             if(abs(pdgId[i])==4) mass1=1.27300;
+//             if(mass1<0) continue;
 
-            float mass2(get_mass(pdgId[j]));
-//             if(abs(pdgId[j])==1) mass2=0.00470;
-//             if(abs(pdgId[j])==2) mass2=0.00216;
-//             if(abs(pdgId[j])==3) mass2=0.09350;
-//             if(abs(pdgId[j])==4) mass2=1.27300;
-            if(mass1<0) continue;
+//             float mass2(get_mass(pdgId[j]));
+// //             if(abs(pdgId[j])==1) mass2=0.00470;
+// //             if(abs(pdgId[j])==2) mass2=0.00216;
+// //             if(abs(pdgId[j])==3) mass2=0.09350;
+// //             if(abs(pdgId[j])==4) mass2=1.27300;
+//             if(mass1<0) continue;
 
-            // Compute mass of the quark pair system
-            ROOT::Math::PtEtaPhiMVector pi(pt[i], eta[i], phi[i], mass1);
-            ROOT::Math::PtEtaPhiMVector pj(pt[j], eta[j], phi[j], mass2);
-            float mqq = (pi + pj).M();
+//             // Compute mass of the quark pair system
+//             ROOT::Math::PtEtaPhiMVector pi(pt[i], eta[i], phi[i], mass1);
+//             ROOT::Math::PtEtaPhiMVector pj(pt[j], eta[j], phi[j], mass2);
+//             float mqq = (pi + pj).M();
 
-            // Check compatibility with the W mass window
-            if (fabs(mqq - m0) > deltam) continue;
+//             // Check compatibility with the W mass window
+//             if (fabs(mqq - m0) > deltam) continue;
 
-            // Mark the pair as valid
-            isValidCand[i] = true;
-            isValidCand[j] = true;
-        }
-    }
+//             // Mark the pair as valid
+//             isValidCand[i] = true;
+//             isValidCand[j] = true;
+//         }
+//     }
 
-    return rvec_b(isValidCand.begin(), isValidCand.end());
-}
+//     return rvec_b(isValidCand.begin(), isValidCand.end());
+// }
 
 
 
-/**
-    @short checks if a set of objects are isolated with respect to a reference in the eta-phi plane
-*/
-rvec_b crossClean(const rvec_f &eta,const rvec_f &phi, const rvec_f &eta_ref, const rvec_f &phi_ref,float cone=0.4)
-{
-    std::vector<bool> isIso;
+// /**
+//     @short checks if a set of objects are isolated with respect to a reference in the eta-phi plane
+// */
+// rvec_b crossClean(const rvec_f &eta,const rvec_f &phi, const rvec_f &eta_ref, const rvec_f &phi_ref,float cone=0.4)
+// {
+//     std::vector<bool> isIso;
 
-    //loop over the first list of objects
-    for(size_t i=0; i<eta.size(); i++) {
+//     //loop over the first list of objects
+//     for(size_t i=0; i<eta.size(); i++) {
 
-        float minDR(9999.);
-        for(size_t j=0; i<eta_ref.size(); i++) {
-            minDR = min(minDR,ROOT::VecOps::DeltaR(eta[i],eta_ref[j],phi[i],phi_ref[j]));
-        }
-        isIso.push_back( minDR>cone );
-    }
+//         float minDR(9999.);
+//         for(size_t j=0; i<eta_ref.size(); i++) {
+//             minDR = min(minDR,ROOT::VecOps::DeltaR(eta[i],eta_ref[j],phi[i],phi_ref[j]));
+//         }
+//         isIso.push_back( minDR>cone );
+//     }
 
-    return rvec_b(isIso.begin(), isIso.end());
-}
+//     return rvec_b(isIso.begin(), isIso.end());
+// }
 
-/**
-   @returns a kinematics feature of a two body system
-*/
-float kinematics2lq(const int &pdgId1, const float &pt1, const float &eta1, const float &phi1,
-                   const int &pdgId2, const float &pt2, const float &eta2, const float &phi2,
-                   std::string kin="mass")
-{
-    float m1(get_mass(pdgId1)), m2(get_mass(pdgId2));
-//     if(abs(pdgId1)==1) m1 = 0.00470;
-//     else if(abs(pdgId1)==2) m1 = 0.00216;
-//     else if(abs(pdgId1)==3) m1 = 0.09350;
-//     else if(abs(pdgId1)==4) m1 = 1.27300;
+// /**
+//    @returns a kinematics feature of a two body system
+// */
+// float kinematics2lq(const int &pdgId1, const float &pt1, const float &eta1, const float &phi1,
+//                    const int &pdgId2, const float &pt2, const float &eta2, const float &phi2,
+//                    std::string kin="mass")
+// {
+//     float m1(get_mass(pdgId1)), m2(get_mass(pdgId2));
+// //     if(abs(pdgId1)==1) m1 = 0.00470;
+// //     else if(abs(pdgId1)==2) m1 = 0.00216;
+// //     else if(abs(pdgId1)==3) m1 = 0.09350;
+// //     else if(abs(pdgId1)==4) m1 = 1.27300;
 
-//     if(abs(pdgId2)==1) m2 = 0.00470;
-//     else if(abs(pdgId2)==2) m2 = 0.00216;
-//     else if(abs(pdgId2)==3) m2 = 0.09350;
-//     else if(abs(pdgId2)==4) m2 = 1.27300;
+// //     if(abs(pdgId2)==1) m2 = 0.00470;
+// //     else if(abs(pdgId2)==2) m2 = 0.00216;
+// //     else if(abs(pdgId2)==3) m2 = 0.09350;
+// //     else if(abs(pdgId2)==4) m2 = 1.27300;
 
-    ROOT::Math::PtEtaPhiMVector p1(pt1, eta1, phi1, m1);
-    ROOT::Math::PtEtaPhiMVector p2(pt2, eta2, phi2, m2);
-    if(kin=="pt") return (p1+p2).Pt();
-    if(kin=="eta") return (p1+p2).Eta();
-    if(kin=="phi") return (p1+p2).Phi();
-    return (p1+p2).M();
-}
+//     ROOT::Math::PtEtaPhiMVector p1(pt1, eta1, phi1, m1);
+//     ROOT::Math::PtEtaPhiMVector p2(pt2, eta2, phi2, m2);
+//     if(kin=="pt") return (p1+p2).Pt();
+//     if(kin=="eta") return (p1+p2).Eta();
+//     if(kin=="phi") return (p1+p2).Phi();
+//     return (p1+p2).M();
+// }
 
 #include <vector>
 #include "ROOT/RVec.hxx"

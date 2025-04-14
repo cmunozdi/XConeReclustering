@@ -63,7 +63,7 @@ rdf = rdf.Define('jet', 'Jet_pt>30 && abs(Jet_eta) <2.4') \
          .Filter('n_jets > 0')
 
 
-# Supression of multijet backgrounds from the production of light-flavor quarks and gluons
+# Suppression of multijet backgrounds from the production of light-flavor quarks and gluons
 rdf = rdf.Define('pt_miss', 'Get_pTmiss(PFCands_pt, PFCands_phi)') \
          .Filter('pt_miss>50')
 
@@ -97,6 +97,12 @@ if isMC:
 
 # Create a snapshot with the selected columns
 rdf.Snapshot('Events', output_file)#, columns)
+
+opts = ROOT.RDF.RSnapshotOptions()
+opts.fMode = "UPDATE"
+
+rdf_runs = ROOT.RDataFrame("Runs", input_files)
+rdf_runs.Snapshot('Runs', output_file, "", opts)
 
 ROOT.ROOT.DisableImplicitMT()
 
