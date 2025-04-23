@@ -129,49 +129,86 @@ struct Lepton{
 
 };
 
-inline Lepton triggerLepton(const rvec_f &pt_le, const rvec_f &eta_le, const rvec_f &phi_le, const rvec_i &pdgId_le, const rvec_f &ak4_eta, const rvec_f &ak4_phi, bool isMuon = true){
+inline Lepton triggerLepton(const rvec_f &pt_le, const rvec_f &eta_le, const rvec_f &phi_le, const rvec_i &pdgId_le,
+                            const rvec_f &PFCands_pt, const rvec_f &PFCands_eta, const rvec_f &PFCands_phi, const rvec_i &PFCands_pdgId,
+                            const rvec_f &ak4_eta, const rvec_f &ak4_phi, bool isMuon = true, bool AnalysisCuts = false) {
     Lepton lepton;
-    if(isMuon){
-        //Selection for muon: pt > 60, |eta| < 2.4. Also, has not to be inside a AK4 jet and has a pt_rel<40 being pt_rel the relative pt of the muon in the orthogonal direction to the jet
-        if(pt_le.size()>0){
-            for(size_t i=0; i<pt_le.size(); i++){
-                if(pt_le[i]>60 && abs(eta_le[i])<2.4){
-                    bool isInsideJet = false;
-                    for(size_t j=0; j<ak4_eta.size(); j++){
-                        if(deltaR(eta_le[i],ak4_eta[j],phi_le[i],ak4_phi[j])<0.4){
-                            if(pt_le[i]*sin(deltaPhi(phi_le[i],ak4_phi[j]))<40) isInsideJet = true;
-                        }
+    double pt_lim;
+    double eta_max = 3;
+    double ptrel_max = 30.;
+    if (AnalysisCuts) {
+        eta_max = 2.4;
+        ptrel_max = 40.;
+    }
+
+    for (size_t i = 0; i < pt_le.size(); i++) {
+        if ((isMuon || AnalysisCuts) && abs(pdgId_le[i]) == 13){
+            pt_lim = 45.0;
+            if (AnalysisCuts) pt_lim = 60.0;   
+        } else if ((!isMuon || AnalysisCuts) && abs(pdgId_le[i]) == 11){
+            pt_lim = 120.0;
+        }
+
+
+        // Muones y electrones con pt > pt_lim GeV: aplicar criterio de P_T^rel
+        if (pt_le[i] > pt_lim) {
+            if (abs(eta_le[i]) < eta_max) {
+                bool isInsideJet = false;
+                for (size_t j = 0; j < ak4_eta.size(); j++) {
+                    if (deltaR(eta_le[i], ak4_eta[j], phi_le[i], ak4_phi[j]) < 0.4) {
+                        if (pt_le[i] * sin(deltaPhi(phi_le[i], ak4_phi[j])) < ptrel_max) isInsideJet = true;
+                        break;
                     }
-                    if(!isInsideJet){
-                        lepton.pt.push_back(pt_le[i]);
-                        lepton.eta.push_back(eta_le[i]);
-                        lepton.phi.push_back(phi_le[i]);
-                        lepton.pdgId.push_back(pdgId_le[i]);
-                    }
+                }
+                if (!isInsideJet) {
+                    lepton.pt.push_back(pt_le[i]);
+                    lepton.eta.push_back(eta_le[i]);
+                    lepton.phi.push_back(phi_le[i]);
+                    lepton.pdgId.push_back(pdgId_le[i]);
                 }
             }
         }
-    }else{
-        //Selection for electron: pt > 120, |eta| < 2.4. Also, has not to be inside a AK4 jet and has a pt_rel<40 being pt_rel the relative pt of the electron in the orthogonal direction to the jet
-        if(pt_le.size()>0){
-            for(size_t i=0; i<pt_le.size(); i++){
-                if(pt_le[i]>120 && abs(eta_le[i])<2.4){
-                    bool isInsideJet = false;
-                    for(size_t j=0; j<ak4_eta.size(); j++){
-                        if(deltaR(eta_le[i],ak4_eta[j],phi_le[i],ak4_phi[j])<0.4){
-                            if(pt_le[i]*sin(deltaPhi(phi_le[i],ak4_phi[j]))<40) isInsideJet = true;
-                        }
-                    }
-                    if(!isInsideJet){
-                        lepton.pt.push_back(pt_le[i]);
-                        lepton.eta.push_back(eta_le[i]);
-                        lepton.phi.push_back(phi_le[i]);
-                        lepton.pdgId.push_back(pdgId_le[i]);
-                    }
+
+        // Electrones con 45 < pt < 120 GeV: aplicar criterio de aislamiento
+        if ((!isMuon || AnalysisCuts) && abs(pdgId_le[i]) == 11 && pt_le[i] < 120) {
+            if(AnalysisCuts && pt_le[i] < 60.0) continue;
+            else if (!AnalysisCuts && pt_le[i] < 45.0) continue;
+            // Calcular aislamiento
+            float I_ch = 0.0, I_gamma = 0.0, I_neutral = 0.0;
+            for (size_t j = 0; j < PFCands_pt.size(); j++) {
+                float dR = deltaR(eta_le[i], PFCands_eta[j], phi_le[i], PFCands_phi[j]);
+                if (dR > 0.3) continue; // Fuera del cono de aislamiento
+
+                if (abs(PFCands_pdgId[j]) == 211) { // Hadrón cargado
+                    I_ch += PFCands_pt[j];
+                } else if (PFCands_pdgId[j] == 22) { // Fotón
+                    I_gamma += PFCands_pt[j];
+                } else if (abs(PFCands_pdgId[j]) == 130) { // Hadrón neutro
+                    I_neutral += PFCands_pt[j];
                 }
+            }
+
+            // Aislamiento combinado
+            float I_combined = I_ch + I_gamma + I_neutral;
+            float E_T = pt_le[i];
+            float isolation_threshold = 0.0;
+
+            if (abs(eta_le[i]) < 1.479) { // Barrel
+                isolation_threshold = 0.029 + 0.51 / E_T;
+            } else { // Endcaps
+                isolation_threshold = 0.0445 + 0.963 / E_T;
+            }
+
+            // Aplicar criterio de aislamiento
+            if ((I_combined / E_T) < isolation_threshold) {
+                lepton.pt.push_back(pt_le[i]);
+                lepton.eta.push_back(eta_le[i]);
+                lepton.phi.push_back(phi_le[i]);
+                lepton.pdgId.push_back(pdgId_le[i]);
             }
         }
     }
+
     lepton.n_lep = lepton.pt.size();
     return lepton;
 }
@@ -277,7 +314,7 @@ inline void initPlugin(std::unique_ptr<NjettinessPlugin> & ptr, int N, float R0,
     }
 }
 
-inline XConeReclusteredJets buildXConeJets(const rvec_f &pt, const rvec_f &eta, const rvec_f &phi, const rvec_f &mass, const rvec_i &pdgId, int NJets = 2, float RJets = 1.2, float BetaJets = 2.0, float ptminJets = 350., float etamaxJets = 2.4, int NSubJets = 3, float RSubJets = 0.4, float BetaSubJets = 2., float ptminSubJets = 30., float etamaxSubJets = 2.5, bool doLeptonSpecific = true, bool usePseudoXCone = false){
+inline XConeReclusteredJets buildXConeJets(const rvec_f &pt, const rvec_f &eta, const rvec_f &phi, const rvec_f &mass, const rvec_i &pdgId, int NJets = 2, float RJets = 1.2, float BetaJets = 2.0, float ptminJets = 300., float etamaxJets = 3., int NSubJets = 3, float RSubJets = 0.4, float BetaSubJets = 2., float ptminSubJets = 22.5, float etamaxSubJets = 3., bool doLeptonSpecific = true, bool usePseudoXCone = false){
 
     // const reco::Candidate *lepton(nullptr);
     std::vector<fastjet::PseudoJet>::iterator lepton_iter;// = _psj.end();
@@ -588,7 +625,7 @@ inline XConeReclusteredJets buildXConeJets(const rvec_f &pt, const rvec_f &eta, 
             //Fill here the W branches of the topjets.
             //Find the two subjets that are closer to the W mass
             //If there are less than two subjets, we will define that as the W
-            float mass_W = 80.3602;
+            float mass_W = 80.385;
             float mass_diff = 999.;
             int subjet1 = 0;
             int subjet2 = -1;

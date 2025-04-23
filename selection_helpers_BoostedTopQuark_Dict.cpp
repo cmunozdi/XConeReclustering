@@ -43,6 +43,51 @@
 namespace std {} using namespace std;
 
 namespace ROOT {
+   static TClass *JetAntikTReclus_Dictionary();
+   static void JetAntikTReclus_TClassManip(TClass*);
+   static void *new_JetAntikTReclus(void *p = nullptr);
+   static void *newArray_JetAntikTReclus(Long_t size, void *p);
+   static void delete_JetAntikTReclus(void *p);
+   static void deleteArray_JetAntikTReclus(void *p);
+   static void destruct_JetAntikTReclus(void *p);
+
+   // Function generating the singleton type initializer
+   static TGenericClassInfo *GenerateInitInstanceLocal(const ::JetAntikTReclus*)
+   {
+      ::JetAntikTReclus *ptr = nullptr;
+      static ::TVirtualIsAProxy* isa_proxy = new ::TIsAProxy(typeid(::JetAntikTReclus));
+      static ::ROOT::TGenericClassInfo 
+         instance("JetAntikTReclus", "selection_helpers_BoostedTopQuark.h", 77,
+                  typeid(::JetAntikTReclus), ::ROOT::Internal::DefineBehavior(ptr, ptr),
+                  &JetAntikTReclus_Dictionary, isa_proxy, 4,
+                  sizeof(::JetAntikTReclus) );
+      instance.SetNew(&new_JetAntikTReclus);
+      instance.SetNewArray(&newArray_JetAntikTReclus);
+      instance.SetDelete(&delete_JetAntikTReclus);
+      instance.SetDeleteArray(&deleteArray_JetAntikTReclus);
+      instance.SetDestructor(&destruct_JetAntikTReclus);
+      return &instance;
+   }
+   TGenericClassInfo *GenerateInitInstance(const ::JetAntikTReclus*)
+   {
+      return GenerateInitInstanceLocal(static_cast<::JetAntikTReclus*>(nullptr));
+   }
+   // Static variable to force the class initialization
+   static ::ROOT::TGenericClassInfo *_R__UNIQUE_DICT_(Init) = GenerateInitInstanceLocal(static_cast<const ::JetAntikTReclus*>(nullptr)); R__UseDummy(_R__UNIQUE_DICT_(Init));
+
+   // Dictionary for non-ClassDef classes
+   static TClass *JetAntikTReclus_Dictionary() {
+      TClass* theClass =::ROOT::GenerateInitInstanceLocal(static_cast<const ::JetAntikTReclus*>(nullptr))->GetClass();
+      JetAntikTReclus_TClassManip(theClass);
+   return theClass;
+   }
+
+   static void JetAntikTReclus_TClassManip(TClass* ){
+   }
+
+} // end of namespace ROOT
+
+namespace ROOT {
    static TClass *Lepton_Dictionary();
    static void Lepton_TClassManip(TClass*);
    static void *new_Lepton(void *p = nullptr);
@@ -100,7 +145,7 @@ namespace ROOT {
       ::JetReclus *ptr = nullptr;
       static ::TVirtualIsAProxy* isa_proxy = new ::TInstrumentedIsAProxy< ::JetReclus >(nullptr);
       static ::ROOT::TGenericClassInfo 
-         instance("JetReclus", ::JetReclus::Class_Version(), "selection_helpers_BoostedTopQuark.h", 213,
+         instance("JetReclus", ::JetReclus::Class_Version(), "selection_helpers_BoostedTopQuark.h", 250,
                   typeid(::JetReclus), ::ROOT::Internal::DefineBehavior(ptr, ptr),
                   &::JetReclus::Dictionary, isa_proxy, 4,
                   sizeof(::JetReclus) );
@@ -132,7 +177,7 @@ namespace ROOT {
       ::TopJetReclus *ptr = nullptr;
       static ::TVirtualIsAProxy* isa_proxy = new ::TInstrumentedIsAProxy< ::TopJetReclus >(nullptr);
       static ::ROOT::TGenericClassInfo 
-         instance("TopJetReclus", ::TopJetReclus::Class_Version(), "selection_helpers_BoostedTopQuark.h", 234,
+         instance("TopJetReclus", ::TopJetReclus::Class_Version(), "selection_helpers_BoostedTopQuark.h", 271,
                   typeid(::TopJetReclus), ::ROOT::Internal::DefineBehavior(ptr, ptr),
                   &::TopJetReclus::Dictionary, isa_proxy, 4,
                   sizeof(::TopJetReclus) );
@@ -164,7 +209,7 @@ namespace ROOT {
       ::XConeReclusteredJets *ptr = nullptr;
       static ::TVirtualIsAProxy* isa_proxy = new ::TInstrumentedIsAProxy< ::XConeReclusteredJets >(nullptr);
       static ::ROOT::TGenericClassInfo 
-         instance("XConeReclusteredJets", ::XConeReclusteredJets::Class_Version(), "selection_helpers_BoostedTopQuark.h", 255,
+         instance("XConeReclusteredJets", ::XConeReclusteredJets::Class_Version(), "selection_helpers_BoostedTopQuark.h", 292,
                   typeid(::XConeReclusteredJets), ::ROOT::Internal::DefineBehavior(ptr, ptr),
                   &::XConeReclusteredJets::Dictionary, isa_proxy, 4,
                   sizeof(::XConeReclusteredJets) );
@@ -287,6 +332,27 @@ TClass *XConeReclusteredJets::Class()
    if (!fgIsA.load()) { R__LOCKGUARD(gInterpreterMutex); fgIsA = ::ROOT::GenerateInitInstanceLocal((const ::XConeReclusteredJets*)nullptr)->GetClass(); }
    return fgIsA;
 }
+
+namespace ROOT {
+   // Wrappers around operator new
+   static void *new_JetAntikTReclus(void *p) {
+      return  p ? new(p) ::JetAntikTReclus : new ::JetAntikTReclus;
+   }
+   static void *newArray_JetAntikTReclus(Long_t nElements, void *p) {
+      return p ? new(p) ::JetAntikTReclus[nElements] : new ::JetAntikTReclus[nElements];
+   }
+   // Wrapper around operator delete
+   static void delete_JetAntikTReclus(void *p) {
+      delete (static_cast<::JetAntikTReclus*>(p));
+   }
+   static void deleteArray_JetAntikTReclus(void *p) {
+      delete [] (static_cast<::JetAntikTReclus*>(p));
+   }
+   static void destruct_JetAntikTReclus(void *p) {
+      typedef ::JetAntikTReclus current_t;
+      (static_cast<current_t*>(p))->~current_t();
+   }
+} // end of namespace ROOT for class ::JetAntikTReclus
 
 namespace ROOT {
    // Wrappers around operator new
@@ -620,6 +686,7 @@ nullptr
 #pragma clang diagnostic ignored "-Wignored-attributes"
 #pragma clang diagnostic ignored "-Wreturn-type-c-linkage"
 extern int __Cling_AutoLoading_Map;
+struct __attribute__((annotate("$clingAutoload$selection_helpers_BoostedTopQuark.h")))  JetAntikTReclus;
 struct __attribute__((annotate("$clingAutoload$selection_helpers_BoostedTopQuark.h")))  Lepton;
 struct __attribute__((annotate("$clingAutoload$selection_helpers_BoostedTopQuark.h")))  JetReclus;
 struct __attribute__((annotate("$clingAutoload$selection_helpers_BoostedTopQuark.h")))  TopJetReclus;
@@ -636,6 +703,7 @@ struct __attribute__((annotate("$clingAutoload$selection_helpers_BoostedTopQuark
 #undef  _BACKWARD_BACKWARD_WARNING_H
 )DICTPAYLOAD";
     static const char* classesHeaders[] = {
+"JetAntikTReclus", payloadCode, "@",
 "JetReclus", payloadCode, "@",
 "Lepton", payloadCode, "@",
 "TopJetReclus", payloadCode, "@",

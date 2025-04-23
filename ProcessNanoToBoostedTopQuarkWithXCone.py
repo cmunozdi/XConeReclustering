@@ -34,6 +34,7 @@ isMC = args.isMC
 
 # Crear un nombre de archivo para rdf_runs basado en args.output
 output_file_runs = args.output.replace(".root", "_runs.root")
+output_file_lumi = args.output.replace(".root", "_lumi.root")
 
 # ROOT.gSystem.Load("$LCIO/lib/libRivet.so")
 # ROOT.gSystem.Load("$LCIO/lib/libHepMC.so")
@@ -46,15 +47,17 @@ ROOT.ROOT.EnableImplicitMT()
 # Creates the RDataFrame
 rdf_runs = ROOT.RDataFrame("Runs", input_files)
 rdf_runs.Snapshot('Runs', output_file_runs)
+rdf_lumi = ROOT.RDataFrame("LuminosityBlocks", input_files)
+rdf_lumi.Snapshot('LuminosityBlocks', output_file_lumi)
 rdf = ROOT.RDataFrame("Events", input_files)
 # rdf = rdf.Range(10)
 
 # Lepton selection: select in the kinematic region of interest
-rdf = rdf.Define('muon', 'triggerLepton(Muon_pt, Muon_eta, Muon_phi, Muon_pdgId, Jet_eta, Jet_phi, true)') \
-         .Define('electron', 'triggerLepton(Electron_pt, Electron_eta, Electron_phi, Electron_pdgId, Jet_eta, Jet_phi, false)') \
+rdf = rdf.Define('muon', 'triggerLepton(Muon_pt, Muon_eta, Muon_phi, Muon_pdgId, PFCands_pt, PFCands_eta, PFCands_phi, PFCands_pdgId, Jet_eta, Jet_phi, true)') \
+         .Define('electron', 'triggerLepton(Electron_pt, Electron_eta, Electron_phi, Electron_pdgId, PFCands_pt, PFCands_eta, PFCands_phi, PFCands_pdgId, Jet_eta, Jet_phi, false)') \
          .Define('lepton', 'CombineLeptons(muon, electron)') \
          .Define('n_leptons', 'lepton.n_lep') \
-         .Filter('n_leptons ==1')
+        #  .Filter('n_leptons ==1')
 
 
 # b-jets selection:
@@ -64,24 +67,48 @@ rdf = rdf.Define('muon', 'triggerLepton(Muon_pt, Muon_eta, Muon_phi, Muon_pdgId,
          #for 2023_Summer23 is 0.6553
          #for 2023_Summer23BPrix is 0.7994
     #I think is better to check the btagDeepFlavB value after de reclustering (different values for different campaigns) && Jet_btagDeepFlavB>0.6553
-rdf = rdf.Define('jet', 'Jet_pt>30 && abs(Jet_eta) <2.4') \
+    # Lowering down the cuts (original Jet_pt>30 && abs(Jet_eta) <2.4)
+rdf = rdf.Define('jet', 'Jet_pt>22.5 && abs(Jet_eta) <3') \
          .Define('n_jets', 'Sum(jet)') \
-         .Filter('n_jets > 0')
+        #  .Filter('n_jets > 0')
 
 
 # Suppression of multijet backgrounds from the production of light-flavor quarks and gluons
 rdf = rdf.Define('pt_miss', 'Get_pTmiss(PFCands_pt, PFCands_phi)') \
-         .Filter('pt_miss>50')
+        #  .Filter('pt_miss>50')
 
 
 # XCone jet clustering for PFCands
 rdf = rdf.Define('jet_XConefromPFCands','buildXConeJets(PFCands_pt, PFCands_eta, PFCands_phi, PFCands_mass, PFCands_pdgId)') \
-         .Filter('jet_XConefromPFCands.fatjets.n_jets > 0') \
+         .Define('n_fatjets', 'jet_XConefromPFCands.fatjets.n_jets') \
+        #  .Filter('jet_XConefromPFCands.fatjets.n_jets > 0') \
+
+# XCone for PFCands: pass detector selection flag: #Reducing cuts as well
+rdf = rdf.Define('pass_detector_selection', '''
+                return (n_leptons == 1) && (n_jets > 0) && (pt_miss > 37.5) && (n_fatjets > 0);
+                ''')
 
 if isMC:
     # Only execute this line if we are processing MC
-    rdf = rdf.Define('jet_XConefromGenCands', 'buildXConeJets(GenCands_pt, GenCands_eta, GenCands_phi, GenCands_mass, GenCands_pdgId)') \
+    rdf = rdf.Define('gen_muon', 'triggerLepton(GenCands_pt, GenCands_eta, GenCands_phi, GenCands_pdgId, GenCands_pt, GenCands_eta, GenCands_phi, GenCands_pdgId, GenJet_eta, GenJet_phi, true)') \
+             .Define('gen_electron', 'triggerLepton(GenCands_pt, GenCands_eta, GenCands_phi, GenCands_pdgId, GenCands_pt, GenCands_eta, GenCands_phi, GenCands_pdgId, GenJet_eta, GenJet_phi, false)') \
+             .Define('gen_lepton', 'CombineLeptons(gen_muon, gen_electron)') \
+             .Define('n_gen_leptons', 'gen_lepton.n_lep') \
+             .Define('gen_jet', 'GenJet_pt>0 && abs(GenJet_eta) <3') \
+             .Define('n_gen_jets', 'Sum(gen_jet)') \
+             .Define('gen_pt_miss', 'Get_pTmiss(GenCands_pt, GenCands_phi)') \
+             .Define('jet_XConefromGenCands', 'buildXConeJets(GenCands_pt, GenCands_eta, GenCands_phi, GenCands_mass, GenCands_pdgId)') \
+             .Define('n_gen_fatjets', 'jet_XConefromGenCands.fatjets.n_jets') \
+             .Define('pass_particle_selection', '''
+                    return (n_gen_leptons == 1) && (n_gen_jets > 0) && (gen_pt_miss > 0) && (n_gen_fatjets > 0);
+                    ''')
             #  .Filter('jet_XConefromGenCands.fatjets.n_jets > 0')
+else:
+    # If not MC, we don't need to define gen_* variables
+    rdf = rdf.Define('pass_particle_selection', 'false')
+
+# Filter the events with at least one flag set to true
+rdf = rdf.Filter('pass_detector_selection || pass_particle_selection') 
 
 # Save the columns needed (if running this on crab, maybe better to save all the columns, since selecting the interesting events will notably reduce the size of the file)
 # columns = ['event', 'lepton', 'n_jets', 'Jet_btagDeepFlavB', 'pt_miss']

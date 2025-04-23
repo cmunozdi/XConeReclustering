@@ -59,3 +59,41 @@ python3 ProcessNanoToBoostedTopQuarkWithXCone.py --input <inputfile or inputdire
 ```
 Replace `<inputfile or inputdirectory>` with the path to your input file or directory, and `<output root file>` with the desired name for the output ROOT file, and write `--isMC` only for MC.
  
+
+# Generate dictionary for custom Structs on the header
+1. Create the dictionary file ``selection_helpers_BoostedTopQuark_LinkDef.h``:
+```cpp
+#ifdef __CINT__
+#pragma link off all globals;
+#pragma link off all classes;
+#pragma link off all functions;
+#pragma link C++ nestedclasses;
+
+// Declara las estructuras y funciones que deseas incluir en el diccionario
+#pragma link C++ struct Lepton+;
+#pragma link C++ struct JetAntikTReclus+;
+#pragma link C++ struct XConeReclusteredJets+;
+#pragma link C++ struct JetReclus+;
+#pragma link C++ struct TopJetReclus+;
+#pragma link C++ function triggerLepton+;
+#pragma link C++ function CombineLeptons+;
+#pragma link C++ function buildXConeJets+;
+#pragma link C++ function Get_pTmiss+;
+#pragma link C++ function initPlugin+;
+
+
+#endif
+```
+
+2. Generate dictionary with ``rootcling``:
+```bash
+rootcling -f selection_helpers_BoostedTopQuark_Dict.cpp \
+    -c selection_helpers_BoostedTopQuark.h selection_helpers_BoostedTopQuark_LinkDef.h
+```
+
+3. Compile to get the ``.so`` (remember doing ``source env_xcone.sh`` first):
+```bash
+g++ -shared -fPIC -o selection_helpers_BoostedTopQuark.so \
+    selection_helpers_BoostedTopQuark.cpp selection_helpers_BoostedTopQuark_Dict.cpp \
+    `root-config --cflags --libs`
+```
