@@ -145,7 +145,7 @@ namespace ROOT {
       ::JetReclus *ptr = nullptr;
       static ::TVirtualIsAProxy* isa_proxy = new ::TInstrumentedIsAProxy< ::JetReclus >(nullptr);
       static ::ROOT::TGenericClassInfo 
-         instance("JetReclus", ::JetReclus::Class_Version(), "selection_helpers_BoostedTopQuark.h", 250,
+         instance("JetReclus", ::JetReclus::Class_Version(), "selection_helpers_BoostedTopQuark.h", 272,
                   typeid(::JetReclus), ::ROOT::Internal::DefineBehavior(ptr, ptr),
                   &::JetReclus::Dictionary, isa_proxy, 4,
                   sizeof(::JetReclus) );
@@ -177,7 +177,7 @@ namespace ROOT {
       ::TopJetReclus *ptr = nullptr;
       static ::TVirtualIsAProxy* isa_proxy = new ::TInstrumentedIsAProxy< ::TopJetReclus >(nullptr);
       static ::ROOT::TGenericClassInfo 
-         instance("TopJetReclus", ::TopJetReclus::Class_Version(), "selection_helpers_BoostedTopQuark.h", 271,
+         instance("TopJetReclus", ::TopJetReclus::Class_Version(), "selection_helpers_BoostedTopQuark.h", 293,
                   typeid(::TopJetReclus), ::ROOT::Internal::DefineBehavior(ptr, ptr),
                   &::TopJetReclus::Dictionary, isa_proxy, 4,
                   sizeof(::TopJetReclus) );
@@ -209,7 +209,7 @@ namespace ROOT {
       ::XConeReclusteredJets *ptr = nullptr;
       static ::TVirtualIsAProxy* isa_proxy = new ::TInstrumentedIsAProxy< ::XConeReclusteredJets >(nullptr);
       static ::ROOT::TGenericClassInfo 
-         instance("XConeReclusteredJets", ::XConeReclusteredJets::Class_Version(), "selection_helpers_BoostedTopQuark.h", 292,
+         instance("XConeReclusteredJets", ::XConeReclusteredJets::Class_Version(), "selection_helpers_BoostedTopQuark.h", 314,
                   typeid(::XConeReclusteredJets), ::ROOT::Internal::DefineBehavior(ptr, ptr),
                   &::XConeReclusteredJets::Dictionary, isa_proxy, 4,
                   sizeof(::XConeReclusteredJets) );
