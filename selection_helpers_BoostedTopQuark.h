@@ -125,6 +125,8 @@ struct Lepton{
     std::vector<float> eta;
     std::vector<float> phi;
     std::vector<int> pdgId;
+    std::vector<float> dR_to_jet;
+    std::vector<float> pt_rel_to_jet;
     int n_lep=0;
 
 };
@@ -136,6 +138,8 @@ inline Lepton triggerLepton(const rvec_f &pt_le, const rvec_f &eta_le, const rve
     double pt_lim;
     double eta_max = 3;
     double ptrel_max = 30.;
+    double tmp_dR_to_jet = 999.;
+    double tmp_pt_rel_to_jet = -1.;
     if (AnalysisCuts) {
         eta_max = 2.4;
         ptrel_max = 40.;
@@ -156,8 +160,10 @@ inline Lepton triggerLepton(const rvec_f &pt_le, const rvec_f &eta_le, const rve
                 bool isInsideJet = false;
                 for (size_t j = 0; j < ak4_eta.size(); j++) {
                     if (deltaR(eta_le[i], ak4_eta[j], phi_le[i], ak4_phi[j]) < 0.4) {
-                        if (pt_le[i] * sin(deltaPhi(phi_le[i], ak4_phi[j])) < ptrel_max) isInsideJet = true;
-                        break;
+                        if (pt_le[i] * sin(deltaPhi(phi_le[i], ak4_phi[j])) < ptrel_max){
+                            isInsideJet = true;
+                            break;
+                        }
                     }
                 }
                 if (!isInsideJet) {
@@ -207,6 +213,16 @@ inline Lepton triggerLepton(const rvec_f &pt_le, const rvec_f &eta_le, const rve
                 lepton.pdgId.push_back(pdgId_le[i]);
             }
         }
+
+        // Calcular dR y pt_rel para los leptones seleccionados
+        for(size_t j = 0; j < ak4_eta.size(); j++) {
+           if( tmp_dR_to_jet > deltaR(eta_le[i], ak4_eta[j], phi_le[i], ak4_phi[j])){
+                tmp_dR_to_jet = deltaR(eta_le[i], ak4_eta[j], phi_le[i], ak4_phi[j]);
+                tmp_pt_rel_to_jet = pt_le[i] * sin(deltaPhi(phi_le[i], ak4_phi[j]));
+            }
+        }
+        lepton.dR_to_jet.push_back(tmp_dR_to_jet);
+        lepton.pt_rel_to_jet.push_back(tmp_pt_rel_to_jet);            
     }
 
     lepton.n_lep = lepton.pt.size();
@@ -228,6 +244,12 @@ inline Lepton CombineLeptons(const Lepton& muons, const Lepton& electrons) {
 
     combined.pdgId.insert(combined.pdgId.end(), muons.pdgId.begin(), muons.pdgId.end());
     combined.pdgId.insert(combined.pdgId.end(), electrons.pdgId.begin(), electrons.pdgId.end());
+
+    combined.dR_to_jet.insert(combined.dR_to_jet.end(), muons.dR_to_jet.begin(), muons.dR_to_jet.end());
+    combined.dR_to_jet.insert(combined.dR_to_jet.end(), electrons.dR_to_jet.begin(), electrons.dR_to_jet.end());
+
+    combined.pt_rel_to_jet.insert(combined.pt_rel_to_jet.end(), muons.pt_rel_to_jet.begin(), muons.pt_rel_to_jet.end());
+    combined.pt_rel_to_jet.insert(combined.pt_rel_to_jet.end(), electrons.pt_rel_to_jet.begin(), electrons.pt_rel_to_jet.end());
 
     // Actualizar el número total de leptones
     combined.n_lep = muons.n_lep + electrons.n_lep;
