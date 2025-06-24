@@ -97,3 +97,19 @@ g++ -shared -fPIC -o selection_helpers_BoostedTopQuark.so \
     selection_helpers_BoostedTopQuark.cpp selection_helpers_BoostedTopQuark_Dict.cpp \
     `root-config --cflags --libs`
 ```
+
+## Merging JSON files and getting the Luminosity (processed Lumi)
+1. Generate the individual JSON files:
+```bash
+for dir in DATA_samples/data_2023_Muon/crab_Muon*; do crab report -d "$dir"; done
+```
+
+2. Merging them:
+```bash
+mergeJSON.py --output DATA_samples/data_2023_Muon/combinedMuon2023processLumis.json $(find DATA_samples/data_2023_Muon/crab_*/results/ -name "processedLumis.json")
+```
+
+3. Getting Luminosity:
+```bash
+brilcalc lumi --normtag /cvmfs/cms-bril.cern.ch/cms-lumi-pog/Normtags/normtag_BRIL.json -u /fb -i DATA_samples/data_2023_Muon/combinedMuon2023processLumis.json
+```
