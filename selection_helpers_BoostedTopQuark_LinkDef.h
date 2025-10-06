@@ -11,6 +11,12 @@
 #pragma link C++ struct JetReclus+;
 #pragma link C++ struct TopJetReclus+;
 #pragma link C++ function triggerLepton+;
+#pragma link C++ function compute_ptrel+;
+#pragma link C++ function singleLevelEnergyCorr+;
+#pragma link C++ function compute_ptrel_new+;
+#pragma link C++ function compute_ptrel_new2+;
+#pragma link C++ function calculateGenCandsJetIdx+;
+#pragma link C++ function pass_JetIdTightLepVeto+;
 #pragma link C++ function CombineLeptons+;
 #pragma link C++ function buildXConeJets+;
 #pragma link C++ function Get_pTmiss+;

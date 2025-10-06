@@ -46,6 +46,14 @@ namespace reco {
     return std::sqrt (deltaR2 (eta1, phi1, eta2, phi2));
   }
 
+  // deltaR para TVector3
+  inline double deltaR(const TVector3 &vec1, const TVector3 &vec2) {
+      double deta = vec1.Eta() - vec2.Eta();
+      double dphi = std::abs(vec1.Phi() - vec2.Phi());
+      if (dphi > M_PI) dphi -= 2 * M_PI;
+      return std::sqrt(deta * deta + dphi * dphi);
+  }
+
 }
 
 // woderful!  VI

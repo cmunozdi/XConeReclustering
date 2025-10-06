@@ -3,6 +3,9 @@
 
 // Implementación de funciones o clases declaradas en el archivo de cabecera
 bool debug = false;
+std::unique_ptr<correction::CorrectionSet> cset;
+std::unique_ptr<correction::CorrectionSet> sf_btagset;
+std::unique_ptr<correction::CorrectionSet> eff_btagset;
 
 void exampleFunction() {
     if (debug) {

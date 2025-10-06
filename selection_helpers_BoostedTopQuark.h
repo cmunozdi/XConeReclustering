@@ -4,6 +4,9 @@
 #include "ROOT/RVec.hxx"
 #include "Math/Vector4D.h"
 #include <vector>
+#include "TVector3.h"
+#include "TMath.h"
+#include "TLorentzVector.h"
 
 #include "Rivet/Tools/ParticleIdUtils.hh"
 #include "fastjet/ClusterSequence.hh"
@@ -22,16 +25,65 @@
 #include "TDatabasePDG.h"
 #include "TParticlePDG.h"
 
+#include <cassert>
+#include <filesystem>
+#include <iostream>
+#include <string>
+#include "correction.h"
+
 using namespace ROOT::VecOps;
 using namespace fastjet;
 using namespace contrib;
 using namespace std;
+namespace fs = std::filesystem;
 
 using rvec_f = const RVec<float>;
 using rvec_i = const RVec<int>;
 using rvec_b = const RVec<bool>;
 
+// Variable global para el archivo de corrección de jets
+extern std::unique_ptr<correction::CorrectionSet> cset;
+// extern std::unique_ptr<correction::CorrectionSet> cset_btag;
+extern std::unique_ptr<correction::CorrectionSet> sf_btagset;
+extern std::unique_ptr<correction::CorrectionSet> eff_btagset;
+
+// Inicializar `cset` al comienzo del header
+inline void initializeCorrectionSet() {
+    fs::path fname_ak4_2023 = "./jet_jerc.json.gz";
+    // fs::path fname_btag_2023 = "/cvmfs/cms.cern.ch/rsync/cms-nanoAOD/jsonpog-integration/POG/BTV/2023_Summer23/btagging.json.gz";
+    if (!fs::exists(fname_ak4_2023)) {
+        throw std::runtime_error("El archivo de corrección no existe: " + fname_ak4_2023.string());
+    }
+    cset = correction::CorrectionSet::from_file(fname_ak4_2023.string());
+    std::cout << "Archivo de corrección cargado exitosamente: " << fname_ak4_2023.string() << std::endl;
+    // if (!fs::exists(fname_btag_2023)) {
+    //     throw std::runtime_error("El archivo de corrección de b-tagging no existe: " + fname_btag_2023.string());
+    // }
+    // cset_btag = correction::CorrectionSet::from_file(fname_btag_2023.string());
+    // std::cout << "Archivo de corrección de b-tagging cargado exitosamente: " << fname_btag_2023.string() << std::endl;
+    // std::cout << "Corrections set initialized." << std::endl;
+}
+
+// Inicializar `cset` al comienzo del header
+inline void initializeBTagCorrectionSet() {
+    fs::path fname_sf_btag_2023 = "./btagging.json.gz"; //"/eos/user/c/cmunozdi/SWAN_projects/BtagScaleFactors/btagging.json.gz"; 
+    fs::path fname_eff_btag_2023 = "./btag_efficiencies_combined.json"; //"/eos/project/r/rtu-topanalysis/AnalysisSamples_JetTightIDNoLepVeto/output_efficiencies_rdf/btag_efficiencies_combined.json"; 
+    // fs::path fname_btag_2023 = "/cvmfs/cms.cern.ch/rsync/cms-nanoAOD/jsonpog-integration/POG/BTV/2023_Summer23/btagging.json.gz";
+    if (!fs::exists(fname_sf_btag_2023)) {
+        throw std::runtime_error("El archivo de corrección no existe: " + fname_sf_btag_2023.string());
+    }
+    sf_btagset = correction::CorrectionSet::from_file(fname_sf_btag_2023.string());
+    std::cout << "Archivo de corrección cargado exitosamente: " << fname_sf_btag_2023.string() << std::endl;
+    if (!fs::exists(fname_eff_btag_2023)) {
+        throw std::runtime_error("El archivo de corrección no existe: " + fname_eff_btag_2023.string());
+    }
+    eff_btagset = correction::CorrectionSet::from_file(fname_eff_btag_2023.string());
+    std::cout << "Archivo de corrección cargado exitosamente: " << fname_eff_btag_2023.string() << std::endl;
+}
+
 extern bool debug;
+// Declarar `cset` como una variable global externa
+// extern std::unique_ptr<correction::CorrectionSet> cset;
 
 /**
  * @brief Returns the particle's mass from its pdgId
@@ -46,6 +98,57 @@ inline double get_mass(int pdgId) {
     } else {
         return -1.0; // Indica que la partícula no fue encontrada
     }
+}
+
+// Funtion to compute btagWeight of the event given the jet collection
+inline float compute_btagWeight(const rvec_f &jet_pts, const rvec_f &jet_etas, const ROOT::VecOps::RVec<UChar_t>& jet_flavs, const rvec_f &jet_btags) {
+    float weight = 1.;
+    for (size_t i = 0; i < jet_pts.size(); i++) {
+
+        if (jet_pts[i] < 30. || abs(jet_etas[i]) > 2.5 /*|| jet_pts[i] > 1000*/) continue;
+
+        float sf = 1.;
+        try {
+            if (static_cast<int>(jet_flavs[i]) == 0) {
+                sf = sf_btagset->at("deepJet_light")->evaluate(
+                    std::vector<correction::Variable::Type>{"central", "T", static_cast<int>(jet_flavs[i]), abs(jet_etas[i]), jet_pts[i]}
+                );
+            } else {
+                sf = sf_btagset->at("deepJet_comb")->evaluate(
+                    std::vector<correction::Variable::Type>{"central", "T", static_cast<int>(jet_flavs[i]), abs(jet_etas[i]), jet_pts[i]}
+                );
+            }
+        } catch (const std::exception &e) {
+            
+            std::cout << "Jet " << i << ": pt = " << jet_pts[i] << ", eta = " << jet_etas[i] 
+                  << ", flav = " << static_cast<int>(jet_flavs[i]) << ", btag = " << jet_btags[i] << std::endl;
+            std::cerr << "Error al evaluar el SF para el jet " << i << ": " << e.what() << ". Value of sf=" << sf << std::endl;
+            continue;
+        }
+
+        float eff = 1.;
+        try {
+            eff = eff_btagset->at("btag_efficiency")->evaluate(
+                std::vector<correction::Variable::Type>{jet_etas[i], jet_pts[i], static_cast<int>(jet_flavs[i])}
+            );
+        } catch (const std::exception &e) {
+            
+            std::cout << "Jet " << i << ": pt = " << jet_pts[i] << ", eta = " << jet_etas[i] 
+                  << ", flav = " << static_cast<int>(jet_flavs[i]) << ", btag = " << jet_btags[i] << std::endl;
+            std::cerr << "Error al evaluar la eficiencia para el jet " << i << ": " << e.what() << ". Value of eff=" << eff << std::endl;
+            continue;
+        }
+
+        float jet_w = 1;
+        if (jet_btags[i] > 0.6553) {
+            jet_w = sf;
+        } else {
+            jet_w = (1 - sf * eff) / (1 - eff);
+        }
+
+        weight *= jet_w;
+    }
+    return weight;
 }
 
 
@@ -115,7 +218,7 @@ inline JetAntikTReclus buildJets(const ROOT::VecOps::RVec<float> &pt,
     jet_data.n_jets = jet_data.pt.size();
     jet_data.R = R;
     jet_data.ptmin = ptmin;
-//     std::cout << "Number of particles: " << jet_data.pt.size() << std::endl;
+//     //std::cout << "Number of particles: " << jet_data.pt.size() << std::endl;
 
     return jet_data;
 }
@@ -128,49 +231,330 @@ struct Lepton{
     std::vector<float> dR_to_jet;
     std::vector<float> pt_rel_to_jet;
     int n_lep=0;
+    std::vector<float> closest_jet_pt; // To store the pt of the closest jet to the lepton, if needed
+    std::vector<float> closest_jet_eta; // To store the eta of the closest jet to the lepton, if needed
+    std::vector<float> closest_jet_phi; // To store the phi of the closest jet to the lepton, if needed
+    std::vector<float> closest_jet_mass; // To store the mass of the closest jet to the lepton, if needed
+    std::vector<int> closest_jet_idx; // To store the index of the closest jet to the lepton, if needed
+    float closest_jet_threshold = -1; // To store the threshold for the closest jet, if needed
 
+    ClassDef(Lepton, 1) // ROOT necesita esta macro para generar diccionarios
 };
 
-inline Lepton triggerLepton(const rvec_f &pt_le, const rvec_f &eta_le, const rvec_f &phi_le, const rvec_i &pdgId_le,
-                            const rvec_f &PFCands_pt, const rvec_f &PFCands_eta, const rvec_f &PFCands_phi, const rvec_i &PFCands_pdgId,
-                            const rvec_f &ak4_eta, const rvec_f &ak4_phi, bool isMuon = true, bool AnalysisCuts = false) {
-    Lepton lepton;
-    double pt_lim;
-    double eta_max = 3;
-    double ptrel_max = 30.;
-    double tmp_dR_to_jet = 999.;
-    double tmp_pt_rel_to_jet = -1.;
-    if (AnalysisCuts) {
-        eta_max = 2.4;
-        ptrel_max = 40.;
+inline double singleLevelEnergyCorr(const map<string, correction::Variable::Type>& example,
+                                    const unique_ptr<correction::CorrectionSet>& cset,
+                                    string jec, string lvl, string algo) {
+    string key = jec + '_' + lvl + '_' + algo;
+    // std::cout << "JSON access to key: " << key << std::endl;
+
+    // correction::Correction::Ref sf = cset->at(key);
+    correction::CompoundCorrection::Ref sf = cset->compound().at(key);
+
+    // std::cout << "Inputs:";
+    vector<correction::Variable::Type> inputs;
+    for (const correction::Variable& input : sf->inputs()) {
+        // std::cout << ' ' << input.name();
+        inputs.push_back(example.at(input.name()));
+        // std::cout << " = " << get<double>(example.at(input.name()));
+    }
+    // std::cout << std::endl;
+
+    double result = sf->evaluate(inputs);
+    // std::cout << "JSON result: " << result << std::endl;
+
+    return result;
+}
+
+inline float compute_ptrel_new(const TLorentzVector& muon,
+                                const TLorentzVector& jet_corr,
+                                float& dR, float jet_threshold) {
+    dR = muon.DeltaR(jet_corr);
+    if (jet_corr.Pt() < jet_threshold) {
+        return -1.0; // Indicating no valid ptrel
+    }
+    return muon.Vect().Cross(jet_corr.Vect().Unit()).Mag();
+}
+
+inline float compute_ptrel_new(const TLorentzVector& muon,
+                                TLorentzVector& jet_corr,
+                                float& dR,
+                                float jet_threshold,
+                                float jet_rawFactor,
+                                double jet_Area,
+                                float rho_PU,
+                                const unique_ptr<correction::CorrectionSet>& cset) {
+    // Raw Jet
+    TLorentzVector jet_raw = jet_corr * (1.0 - jet_rawFactor);
+    // std::cout << "Jet_raw: Pt = " << jet_raw.Pt() << ", jet_corr: Pt = " << jet_corr.Pt() << ", jet_rawFactor = " << jet_rawFactor << std::endl;
+
+    // Muon
+    TLorentzVector muon_raw = muon;
+
+    // Raw jet without the muon
+    TLorentzVector jet_raw_no_mu = jet_raw - muon_raw;
+
+    //Variable map with the raw jet
+    map<string, correction::Variable::Type> jet_raw_map {
+        {"JetPt", jet_raw_no_mu.Pt()},
+        {"JetEta", jet_raw_no_mu.Eta()},
+        {"JetPhi", jet_raw_no_mu.Phi()},
+        {"JetA", jet_Area},
+        {"Rho", rho_PU}
+    };
+
+    // Then the conditions to apply the correction
+    string jec = "Summer23Prompt23_V2_MC",
+           lvl = "L1L2L3Res",
+           algo = "AK4PFPuppi";
+
+    // Getting the correction factor
+    double jet_corrFactor=0.;
+    if(jet_Area==0 && rho_PU==0) jet_corrFactor = 1.;
+    else jet_corrFactor = singleLevelEnergyCorr(jet_raw_map, cset, jec, lvl, algo);
+
+    // Corrected jet without the muon
+    TLorentzVector jet_corr_no_mu = jet_raw_no_mu * jet_corrFactor;
+    // std::cout << "Jet_raw_no_mu: Pt = " << jet_raw_no_mu.Pt() << ", Jet_corr_no_mu: Pt = " << jet_corr_no_mu.Pt() << ", jet_corrFactor = " << jet_corrFactor << ", jet_area = " << jet_Area << ", rho_PU = " << rho_PU << std::endl << std::endl;
+
+
+    // If the corrected jet without the muon has a pt lower than 15 GeV, return -1 (indicating no valid ptrel)
+    if (jet_corr_no_mu.Pt() < jet_threshold) {
+        return -1.0;
+    }
+    // Calculate dR between the muon and the corrected jet without the muon
+    dR = muon.DeltaR(jet_corr_no_mu);
+
+    //Save the corrected jet without the muon
+    jet_corr.SetPtEtaPhiM(jet_corr_no_mu.Pt(),
+                          jet_corr_no_mu.Eta(),
+                          jet_corr_no_mu.Phi(),
+                          jet_corr_no_mu.M());
+
+    // Calculate ptrel
+    return muon.Vect().Cross(jet_corr_no_mu.Vect().Unit()).Mag();
+}
+
+inline float compute_ptrel(const TLorentzVector& muon,
+                            const TLorentzVector& jet_corr,
+                            float jet_rawFactor, float& dR, bool muonBelongsToJet = false) {
+    // Jet with no correction
+    TLorentzVector jet_raw = jet_corr * (1.0 - jet_rawFactor);
+
+
+    // std::cout << "Muon pt: " << muon.Pt() << ", eta: " << muon.Eta() << ", phi: " << muon.Phi() << std::endl;
+    // std::cout << "Jet corr pt: " << jet_corr.Pt() << ", eta: " << jet_corr.Eta() << ", phi: " << jet_corr.Phi() << ", rawFactor: " << jet_rawFactor << std::endl;
+    // std::cout << "Jet raw pt: " << jet_raw.Pt() << ", eta: " << jet_raw.Eta() << ", phi: " << jet_raw.Phi() << std::endl;
+    // std::cout << "muon.DeltaR(jet_corr): " << muon.DeltaR(jet_corr) << std::endl;
+    // std::cout << "deltaR(muon, jet_corr): " << deltaR(muon.Eta(), muon.Phi(), jet_corr.Eta(), jet_corr.Phi())  << std::endl;
+
+    // If deltaR(lep, jet)>0.4, do not sustract the muon from the jet
+    if (muon.DeltaR(jet_corr) > 0.4 || !muonBelongsToJet) {
+        dR = muon.DeltaR(jet_corr);
+        // std::cout << "\t DeltaR is greater than 0.4 (" << dR << "), returning ptrel: " << muon.Vect().Cross(jet_corr.Vect().Unit()).Mag() << std::endl;
+        return muon.Vect().Cross(jet_corr.Vect().Unit()).Mag();
     }
 
+    // Verify that the jet and the lepton are not the same vector
+    // if (muon.DeltaR(jet_raw) < 1e-4) {
+    //     //std::cout << "\t Jet and muon are the same vector, returning -1" << std::endl;
+    //     return -1;  // will look for the next closest jet
+    // }
+
+    //Uncorrected the muon (it was embedded in the raw jet)
+    float l1corrFactor;
+    if(abs(1.0-jet_rawFactor)>1e-5){
+        l1corrFactor = 1.0 / (1.0 - jet_rawFactor);
+    }else{
+        l1corrFactor = 1.0; // If the jet_rawFactor is very close to 1, we assume no correction is needed
+    }
+    TLorentzVector muon_raw = muon;// * (1.0 / l1corrFactor);
+
+    //Jet without the muon, in RAW scale
+    TLorentzVector jet_raw_no_mu = jet_raw - muon_raw;
+
+    // Jet corrected without the muon
+    float scale = jet_corr.Pt() / jet_raw.Pt();  // same factor applied to the whole jet
+    TLorentzVector jet_corr_no_mu = jet_raw_no_mu * scale;
+
+    // Get the dR between the muon and the corrected jet without the muon
+    dR = muon.DeltaR(jet_corr_no_mu);
+
+    // std::cout << "\t l1corrFactor: " << l1corrFactor << std::endl;
+    // std::cout << "\t muon_raw_pt: " << muon_raw.Pt() << ", eta: " << muon_raw.Eta() << ", phi: " << muon_raw.Phi() << std::endl;
+    // std::cout << "\t jet_raw_no_mu_pt: " << jet_raw_no_mu.Pt() << ", eta: " << jet_raw_no_mu.Eta() << ", phi: " << jet_raw_no_mu.Phi() << std::endl;
+    // std::cout << "\t scale: " << scale << std::endl;
+    // std::cout << "\t jet_corr_no_mu_pt: " << jet_corr_no_mu.Pt() << ", eta: " << jet_corr_no_mu.Eta() << ", phi: " << jet_corr_no_mu.Phi() << std::endl;
+    // std::cout << "\t dR(muon, jet_corr_no_mu): " << dR << std::endl;
+
+    // If the corrected jet without the muon has a pt lower than 15 GeV, return -1 (indicating no valid ptrel)
+    if (jet_corr_no_mu.Pt() < 15) {
+        return -1.0;
+    }
+
+    // Final jet = corrected jet without the muon + corrected muon
+    // with this, we can easily get the corrected jet without the muon by sustracting the muon
+    TLorentzVector jet_final = jet_corr_no_mu + muon;
+
+   // Get the dR between the muon and the corrected jet without the muon
+    dR = muon.DeltaR(jet_corr_no_mu);
+
+
+    // std::cout << "\t jet_final_pt: " << jet_final.Pt() << ", eta: " << jet_final.Eta() << ", phi: " << jet_final.Phi() << std::endl;
+    // std::cout << "\t dR(muon, jet_final): " << dR << std::endl;
+
+    // pTrel
+    float ptrel = muon.Vect().Cross((/*jet_final - muon*/jet_corr_no_mu).Vect().Unit()).Mag();
+
+    // std::cout << "\t ptrel: " << ptrel << std::endl;
+
+    return ptrel;
+}
+
+
+inline ROOT::VecOps::RVec<Short_t> calculateGenCandsJetIdx(const ROOT::VecOps::RVec<int>& GenJetCands_genCandsIdx,
+                                                           const ROOT::VecOps::RVec<int>& GenJetCands_jetIdx,
+                                                           int nGenCands, int nGenJet) {
+    // Inicializa el vector de índices con -1 (no pertenece a ningún jet)
+    ROOT::VecOps::RVec<Short_t> GenCands_jetIdx(nGenCands, -1);
+
+    // Itera sobre las GenJetCands para asignar los índices de los jets
+    for (size_t i = 0; i < GenJetCands_genCandsIdx.size(); ++i) {
+        int genCandIdx = GenJetCands_genCandsIdx[i];
+        if (genCandIdx >= 0 && genCandIdx < nGenCands) {
+            int jetIdx = GenJetCands_jetIdx[i];
+            if (jetIdx >= 0 && jetIdx < nGenJet) {
+                GenCands_jetIdx[genCandIdx] = static_cast<Short_t>(jetIdx);
+            }
+        }
+    }
+
+    return GenCands_jetIdx;
+}
+
+inline Lepton triggerLepton(const rvec_f &pt_le, const rvec_f &eta_le, const rvec_f &phi_le, const rvec_i &pdgId_le, const rvec_i &jetIdx_le, const rvec_b &tightId_le, /*const rvec_f &ak4_lesubDeltaeta, const rvec_f &ak4_lesubDeltaphi, const rvec_f &ak4_lesubfactor,*/ const rvec_f &PFCands_pt, const rvec_f &PFCands_eta, const rvec_f &PFCands_phi, const rvec_i &PFCands_pdgId, const rvec_f &ak4_pt, const rvec_f &ak4_eta, const rvec_f &ak4_phi, const rvec_f &ak4_mass, const rvec_b &ak4_passJetIdTightLepVeto, const rvec_f &ak4_rawFactor, const rvec_f &ak4_area, const float &rho_PU, float ak4_pt_threshold = 25.0, const bool isMuon = true, bool AnalysisCuts = false, bool GenLevel = false, const float thr_dR = 0.3, const float thr_ptrel = 30.0) {
+    // std::cout << "Is GenLevel: " << GenLevel << std::endl;
+    // std::cout << "Trigger Lepton selection: isMuon = " << isMuon << ", AnalysisCuts = " << AnalysisCuts << std::endl;
+    // std::cout << "Jet threshold: " << ak4_pt_threshold << std::endl;
+    ROOT::VecOps::RVec<bool> tightId_le_local;// = tightId_le; // Crear una copia modificable
+
+    if (tightId_le.size() == 0) {
+        // std::cout << "Warning: tightId_le is empty, assuming all leptons are tight." << std::endl;
+        tightId_le_local = rvec_b(pt_le.size(), true); // Asumimos que todos son tight
+    }
+    else{
+        tightId_le_local = tightId_le; // Usar la copia local
+    }
+    Lepton lepton;
+    double pt_lim;
+    double eta_max = 99.; //3.
+    double ptrel_max = 20.; //30.0
+    if (AnalysisCuts) {
+        eta_max = 2.4;
+        ptrel_max = 30.;
+    }
+
+    //Create the correction object
+    // fs::path fname_ak4_2023 = "./2023jec/jet_jerc.json.gz";
+//TENGO QUE LLEVAR ESTO AL PYTHON FUERA DEL C++#################################
+    // fs::path fname_ak4_2023 = "./jet_jerc.json.gz";
+    // assert(fs::exists(fname_ak4_2023));
+    // unique_ptr<correction::CorrectionSet> cset = correction::CorrectionSet::from_file(fname_ak4_2023.string());
+
     for (size_t i = 0; i < pt_le.size(); i++) {
+        
+
+        // std::cout << "Es un tight lepton: " << i << ", valor --> " << tightId_le_local[i]  << std::endl;
+        if((abs(pdgId_le[i]) != 11 && abs(pdgId_le[i]) != 13) || !tightId_le_local[i]) continue;
+
+        
+        double min_dR_to_jet = 999.;
+        double min_pt_rel_to_jet = -1.;
+
         if ((isMuon || AnalysisCuts) && abs(pdgId_le[i]) == 13){
             pt_lim = 45.0;
-            if (AnalysisCuts) pt_lim = 60.0;   
+            if (AnalysisCuts) pt_lim = 55.0;   
         } else if ((!isMuon || AnalysisCuts) && abs(pdgId_le[i]) == 11){
             pt_lim = 120.0;
         }
-
+        
+        TLorentzVector tem_closest_jet;
+        int tmp_closest_jet_idx;
 
         // Muones y electrones con pt > pt_lim GeV: aplicar criterio de P_T^rel
-        if (pt_le[i] > pt_lim) {
-            if (abs(eta_le[i]) < eta_max) {
-                bool isInsideJet = false;
-                for (size_t j = 0; j < ak4_eta.size(); j++) {
-                    if (deltaR(eta_le[i], ak4_eta[j], phi_le[i], ak4_phi[j]) < 0.4) {
-                        if (pt_le[i] * sin(deltaPhi(phi_le[i], ak4_phi[j])) < ptrel_max){
-                            isInsideJet = true;
-                            break;
-                        }
-                    }
+        if ((pt_le[i] > pt_lim) && (abs(eta_le[i]) < eta_max)) {
+            // if(jetIdx_le[i] < 0) continue; // Si el jetIdx es negativo, no pertenece a ningún jet
+            
+            bool isInsideJet = false;
+            TLorentzVector lepton_p4;
+            lepton_p4.SetPtEtaPhiM(pt_le[i], eta_le[i], phi_le[i], get_mass(pdgId_le[i]));
+            // TVector3 lepton_p3(pt_le[i] * cos(phi_le[i]), pt_le[i] * sin(phi_le[i]), pt_le[i] * sinh(eta_le[i]));
+
+            // std::cout << endl << "Lepton " << i << ": ptx = " << lepton_p3.Px() << ", pty = " << lepton_p3.Py() << ", ptz = " << lepton_p3.Pz() << ", pt = " << pt_le[i] << ", eta = " << eta_le[i] << ", phi = " << phi_le[i] << ", pdgId = " << pdgId_le[i] << endl;
+            for (size_t j = 0; j < ak4_eta.size(); j++) {
+
+                //Continue if the jet does not pass the tight ID or is below the threshold
+                if (!ak4_passJetIdTightLepVeto[j] ) continue; // Si el jet no pasa el ID tight, lo ignoramos
+                //if(jetIdx_le[i] != static_cast<int>(j)) continue; // Only consider the jet that the lepton belongs to
+                TLorentzVector jet_corr_p4;
+                jet_corr_p4.SetPtEtaPhiM(ak4_pt[j], ak4_eta[j], ak4_phi[j], ak4_mass[j]); // Assuming mass is 0 for jets
+                // TVector3 jet_p3(ak4_pt[j] * cos(ak4_phi[j]), ak4_pt[j] * sin(ak4_phi[j]), ak4_pt[j] * sinh(ak4_eta[j]));
+                // TVector3 adjusted_jet_p3 = jet_p3;
+                // if(deltaR(lepton_p3, jet_p3)<0.4) adjusted_jet_p3 -= lepton_p3; //Only substract the lepton when dR is <0.4
+
+                // std::cout << endl << "\tJet " << j << ": ptx = " << jet_p3.Px() << ", pty = " << jet_p3.Py() << ", ptz = " << jet_p3.Pz();
+
+                float tmp_ptrel;
+
+                float dR;
+
+                // std::cout << endl << "########Jet number: " << j << ", muon_idxJet = " << jetIdx_le[i] << "##########" << endl;
+                // std::cout << "Corrected Jet (without muon): Pt = " << (- ak4_lesubfactor[j] + 1) << ", eta = " << ak4_lesubDeltaeta+ak4_eta[j] << ", phi = " << ak4_lesubDeltaphi+ak4_phi[j] << endl; 
+                bool muon_belongs_to_jet = (jetIdx_le[i] == static_cast<int>(j));
+                //std::cout << "\t muon_belongs_to_jet = " << muon_belongs_to_jet << std::endl;
+
+                // dR = lepton_p4.DeltaR(jet_corr_p4);
+                tmp_ptrel = compute_ptrel_new(lepton_p4, jet_corr_p4, dR, ak4_pt_threshold);
+
+                if(muon_belongs_to_jet && dR < 0.4) {
+
+                    tmp_ptrel = compute_ptrel_new(lepton_p4, jet_corr_p4, dR, ak4_pt_threshold, ak4_rawFactor[j], ak4_area[j], rho_PU, cset);
                 }
-                if (!isInsideJet) {
-                    lepton.pt.push_back(pt_le[i]);
-                    lepton.eta.push_back(eta_le[i]);
-                    lepton.phi.push_back(phi_le[i]);
-                    lepton.pdgId.push_back(pdgId_le[i]);
+
+                // std::cout << " min_dR_to_jet = " << min_dR_to_jet << ", deltaR = " << deltaR(eta_le[i], phi_le[i], ak4_eta[j], ak4_phi[j])  << ", deltaRpart = " << dR << endl;
+                // std::cout << "\tdeltaRadj = " << deltaR(lepton_p3, adjusted_jet_p3)  << endl;
+
+                // If this jet closer than all the previous jets, update the minimum dR and pt_rel
+                if ((min_dR_to_jet > dR)&&(tmp_ptrel != -1.0)) {
+
+                    min_pt_rel_to_jet = tmp_ptrel;
+                    min_dR_to_jet = dR;
+                    tem_closest_jet = jet_corr_p4; // Save the closest jet
+                    tmp_closest_jet_idx = j; // Save the index of the closest jet
+                }
+            }
+            // Comment this three lines if you do not want to apply 2D cuts (deltaR and ptrel)
+            // if(min_dR_to_jet < 0.4 && min_pt_rel_to_jet < ptrel_max) {
+            //     isInsideJet = true;
+            // }   
+            if ((min_dR_to_jet>thr_dR || min_pt_rel_to_jet>thr_ptrel) && (min_dR_to_jet!= 999. && min_pt_rel_to_jet != -1.)) {
+                lepton.pt.push_back(pt_le[i]);
+                lepton.eta.push_back(eta_le[i]);
+                lepton.phi.push_back(phi_le[i]);
+                lepton.pdgId.push_back(pdgId_le[i]);
+                lepton.dR_to_jet.push_back(min_dR_to_jet);
+                lepton.pt_rel_to_jet.push_back(min_pt_rel_to_jet);
+                lepton.closest_jet_pt.push_back(tem_closest_jet.Pt());
+                lepton.closest_jet_eta.push_back(tem_closest_jet.Eta());
+                lepton.closest_jet_phi.push_back(tem_closest_jet.Phi());
+                lepton.closest_jet_mass.push_back(tem_closest_jet.M());
+                lepton.closest_jet_idx.push_back(tmp_closest_jet_idx); // Store the index of the closest jet
+                lepton.closest_jet_threshold = ak4_pt_threshold; // Store the threshold for the closest jet
+                // std::cout << "#########dR: " << min_dR_to_jet << ", ptrel: " << min_pt_rel_to_jet << ", ptrelNANO: " << le_jetptrel[i] << "##########" << endl << std::endl;
+                if(min_dR_to_jet<0.05 && min_pt_rel_to_jet>50){
+                    // std::cout << endl << "Lepton " << i << ": ptx = " << lepton_p3.Px() << ", pty = " << lepton_p3.Py() << ", ptz = " << lepton_p3.Pz() << ", eta = " << eta_le[i] << ", phi = " << phi_le[i] << endl;
+                    // std::cout << endl << "\tJet " << ": ptx = " << tem_jet_p3.Px() << ", pty = " << tem_jet_p3.Py() << ", ptz = " << tem_jet_p3.Pz() << ", eta = " << tmp_jet_eta << ", phi = " << tmp_jet_phi;
+                    // std::cout << ", min_dR_to_jet = " << min_dR_to_jet << ", deltaR = " << std::sqrt(reco::deltaR2(eta_le[i], phi_le[i], tmp_jet_eta, tmp_jet_phi)) << endl;
+                    // std::cout << "\t\t tmp_ptrel = " << min_pt_rel_to_jet << endl;
                 }
             }
         }
@@ -182,7 +566,7 @@ inline Lepton triggerLepton(const rvec_f &pt_le, const rvec_f &eta_le, const rve
             // Calcular aislamiento
             float I_ch = 0.0, I_gamma = 0.0, I_neutral = 0.0;
             for (size_t j = 0; j < PFCands_pt.size(); j++) {
-                float dR = deltaR(eta_le[i], PFCands_eta[j], phi_le[i], PFCands_phi[j]);
+                float dR = deltaR(eta_le[i], phi_le[i], PFCands_eta[j], PFCands_phi[j]);
                 if (dR > 0.3) continue; // Fuera del cono de aislamiento
 
                 if (abs(PFCands_pdgId[j]) == 211) { // Hadrón cargado
@@ -213,20 +597,40 @@ inline Lepton triggerLepton(const rvec_f &pt_le, const rvec_f &eta_le, const rve
                 lepton.pdgId.push_back(pdgId_le[i]);
             }
         }
-
-        // Calcular dR y pt_rel para los leptones seleccionados
-        for(size_t j = 0; j < ak4_eta.size(); j++) {
-           if( tmp_dR_to_jet > deltaR(eta_le[i], ak4_eta[j], phi_le[i], ak4_phi[j])){
-                tmp_dR_to_jet = deltaR(eta_le[i], ak4_eta[j], phi_le[i], ak4_phi[j]);
-                tmp_pt_rel_to_jet = pt_le[i] * sin(deltaPhi(phi_le[i], ak4_phi[j]));
-            }
-        }
-        lepton.dR_to_jet.push_back(tmp_dR_to_jet);
-        lepton.pt_rel_to_jet.push_back(tmp_pt_rel_to_jet);            
     }
 
     lepton.n_lep = lepton.pt.size();
     return lepton;
+}
+
+inline ROOT::RVec<bool> pass_JetIdTightLepVeto(const ROOT::RVec<float>& Jet_eta,
+                                   const ROOT::RVec<float>& Jet_neHEF, const ROOT::RVec<float>& Jet_neEmEF,
+                                   const ROOT::RVec<int>& Jet_chMultiplicity, const ROOT::RVec<int>& Jet_neMultiplicity,
+                                   const ROOT::RVec<float>& Jet_chHEF, const ROOT::RVec<float>& Jet_muEF,
+                                   const ROOT::RVec<float>& Jet_chEmEF, bool LepVeto = false){
+    ROOT::RVec<bool> Jet_passJetIdTight = rvec_b(Jet_eta.size(), false);
+    ROOT::RVec<bool> Jet_passJetIdTightLepVeto = rvec_b(Jet_eta.size(), false);
+    for(size_t jet_idx = 0; jet_idx < Jet_eta.size(); jet_idx++) {
+        if(abs(Jet_eta[jet_idx]) <= 2.6){
+            Jet_passJetIdTight[jet_idx] = (Jet_neHEF[jet_idx] < 0.99) && (Jet_neEmEF[jet_idx] < 0.9) && (Jet_chMultiplicity[jet_idx]+Jet_neMultiplicity[jet_idx] > 1) && (Jet_chHEF[jet_idx] > 0.01) && (Jet_chMultiplicity[jet_idx] > 0);
+        }else if((abs(Jet_eta[jet_idx]) > 2.6) && (abs(Jet_eta[jet_idx]) <= 2.7)){
+            Jet_passJetIdTight[jet_idx] = (Jet_neHEF[jet_idx] < 0.90) && (Jet_neEmEF[jet_idx] < 0.99);
+        }else if((abs(Jet_eta[jet_idx]) > 2.7) && (abs(Jet_eta[jet_idx]) <= 3.0)){
+            Jet_passJetIdTight[jet_idx] = (Jet_neHEF[jet_idx] < 0.90);
+        }else if((abs(Jet_eta[jet_idx]) > 3.0) ){
+            Jet_passJetIdTight[jet_idx] = (Jet_neMultiplicity[jet_idx] >=2 ) && (Jet_neEmEF[jet_idx] < 0.4);
+        }
+
+        // Now apply the lepton veto
+        if(LepVeto){
+            if(abs(Jet_eta[jet_idx]) <= 2.7){
+                Jet_passJetIdTightLepVeto[jet_idx] = Jet_passJetIdTight[jet_idx] && (Jet_muEF[jet_idx] < 0.8) && (Jet_chEmEF[jet_idx] < 0.8);
+            }else Jet_passJetIdTightLepVeto[jet_idx] = Jet_passJetIdTight[jet_idx];
+        }
+    }
+    if(LepVeto) return Jet_passJetIdTightLepVeto;
+    else return Jet_passJetIdTight;
+    // return Jet_passJetIdTightLepVeto;
 }
 
 inline Lepton CombineLeptons(const Lepton& muons, const Lepton& electrons) {
@@ -251,8 +655,27 @@ inline Lepton CombineLeptons(const Lepton& muons, const Lepton& electrons) {
     combined.pt_rel_to_jet.insert(combined.pt_rel_to_jet.end(), muons.pt_rel_to_jet.begin(), muons.pt_rel_to_jet.end());
     combined.pt_rel_to_jet.insert(combined.pt_rel_to_jet.end(), electrons.pt_rel_to_jet.begin(), electrons.pt_rel_to_jet.end());
 
+    combined.closest_jet_pt.insert(combined.closest_jet_pt.end(), muons.closest_jet_pt.begin(), muons.closest_jet_pt.end());
+    combined.closest_jet_pt.insert(combined.closest_jet_pt.end(), electrons.closest_jet_pt.begin(), electrons.closest_jet_pt.end());
+
+    combined.closest_jet_eta.insert(combined.closest_jet_eta.end(), muons.closest_jet_eta.begin(), muons.closest_jet_eta.end());
+    combined.closest_jet_eta.insert(combined.closest_jet_eta.end(), electrons.closest_jet_eta.begin(), electrons.closest_jet_eta.end());
+
+    combined.closest_jet_phi.insert(combined.closest_jet_phi.end(), muons.closest_jet_phi.begin(), muons.closest_jet_phi.end());
+    combined.closest_jet_phi.insert(combined.closest_jet_phi.end(), electrons.closest_jet_phi.begin(), electrons.closest_jet_phi.end());
+
+    combined.closest_jet_mass.insert(combined.closest_jet_mass.end(), muons.closest_jet_mass.begin(), muons.closest_jet_mass.end());
+    combined.closest_jet_mass.insert(combined.closest_jet_mass.end(), electrons.closest_jet_mass.begin(), electrons.closest_jet_mass.end());
+
+    combined.closest_jet_idx.insert(combined.closest_jet_idx.end(), muons.closest_jet_idx.begin(), muons.closest_jet_idx.end());
+    combined.closest_jet_idx.insert(combined.closest_jet_idx.end(), electrons.closest_jet_idx.begin(), electrons.closest_jet_idx.end());
+
+
     // Actualizar el número total de leptones
     combined.n_lep = muons.n_lep + electrons.n_lep;
+
+    // Actualizar el umbral del jet más cercano
+    combined.closest_jet_threshold = std::max(muons.closest_jet_threshold, electrons.closest_jet_threshold);
 
     return combined;
 }
@@ -336,11 +759,11 @@ inline void initPlugin(std::unique_ptr<NjettinessPlugin> & ptr, int N, float R0,
     }
 }
 
-inline XConeReclusteredJets buildXConeJets(const rvec_f &pt, const rvec_f &eta, const rvec_f &phi, const rvec_f &mass, const rvec_i &pdgId, int NJets = 2, float RJets = 1.2, float BetaJets = 2.0, float ptminJets = 300., float etamaxJets = 3., int NSubJets = 3, float RSubJets = 0.4, float BetaSubJets = 2., float ptminSubJets = 22.5, float etamaxSubJets = 3., bool doLeptonSpecific = true, bool usePseudoXCone = false){
+inline XConeReclusteredJets buildXConeJets(const rvec_f &pt, const rvec_f &eta, const rvec_f &phi, const rvec_f &mass, const rvec_i &pdgId, int NJets = 2, float RJets = 1.2, float BetaJets = 2.0, float ptminJets = 200., float etamaxJets = 3., int NSubJets = 3, float RSubJets = 0.4, float BetaSubJets = 2., float ptminSubJets = 22.5, float etamaxSubJets = 3., bool doLeptonSpecific = true, bool usePseudoXCone = false){
 
     // const reco::Candidate *lepton(nullptr);
     std::vector<fastjet::PseudoJet>::iterator lepton_iter;// = _psj.end();
-    float lepton_max_pt = 00;
+    float lepton_min_pt = 00;
     float DRLeptonJet_ = 999.;
 
     //Convert particles to PseudoJets
@@ -369,10 +792,10 @@ inline XConeReclusteredJets buildXConeJets(const rvec_f &pt, const rvec_f &eta, 
         if (doLeptonSpecific){
             uint pdgid = abs(pdgId[i]);
             auto candPt = p4.pt();
-            if ((pdgid == 11 || pdgid == 13) && (candPt > lepton_max_pt)){
+            if ((pdgid == 11 || pdgid == 13) && (candPt > lepton_min_pt)){
                 // lepton_iter = std::prev(_psj.end());
                 lepton_index = i_gl;
-                lepton_max_pt = candPt;
+                lepton_min_pt = candPt;
                 lepton = _psj.back();
             }
         }//doLeptonSpecific
@@ -381,16 +804,16 @@ inline XConeReclusteredJets buildXConeJets(const rvec_f &pt, const rvec_f &eta, 
     bool foundLepton = false;
 
     if (doLeptonSpecific && lepton != 0.){
-        if(debug) std::cout << "PT del lepton es: " << lepton_max_pt << std::endl;
+        if(debug) std::cout << "PT del lepton es: " << lepton_min_pt << std::endl;
         // lepton = *lepton_iter;
         if(debug) std::cout << "PT del lepton es1: " << lepton.pt() << std::endl;
         foundLepton = true;
-        if(debug) std::cout << "PT del lepton es: " << lepton_max_pt << std::endl;
+        if(debug) std::cout << "PT del lepton es: " << lepton_min_pt << std::endl;
     }
 
     // if(!foundLepton){
-    //     std::cout << "foundLepton: " << foundLepton << std::endl;
-    //     std::cout << "doLeptonSpecific: " << doLeptonSpecific << std::endl;
+    //     //std::cout << "foundLepton: " << foundLepton << std::endl;
+    //     //std::cout << "doLeptonSpecific: " << doLeptonSpecific << std::endl;
     // }
 
     if (doLeptonSpecific && !foundLepton){
@@ -472,14 +895,23 @@ inline XConeReclusteredJets buildXConeJets(const rvec_f &pt, const rvec_f &eta, 
     // XConeJetsCollection.fatjets.findLepton[lepton_jet_ind] = true;
 
     //Return if the fatjet where the lepton is not clusted has a pt smaller than 400GeV
-    if (doLeptonSpecific && lepton_jet_ind != 999){
-        for(uint i=0; i<fatjets.size(); i++){
-            if(i == lepton_jet_ind) continue;
-            if(fatjets[i].pt() < ptminJets){
-                XConeReclusteredJets XConeJetsCollection;
-                return XConeJetsCollection;
-            }
-        }
+    // if (doLeptonSpecific && lepton_jet_ind != 999){
+    //     for(uint i=0; i<fatjets.size(); i++){
+    //         if(i == lepton_jet_ind) continue;
+    //         if(fatjets[i].pt() < ptminJets){
+    //             XConeReclusteredJets XConeJetsCollection;
+    //             return XConeJetsCollection;
+    //         }
+    //     }
+    // }
+    //For baseline selection, at least one of the fatjets should have a pt larger than 200 GeV
+    bool atLeastOneFastjet = false;
+    for(uint i=0; i<fatjets.size(); i++){
+        if(fatjets[i].pt() > ptminJets) atLeastOneFastjet = true;
+    }
+    if(!atLeastOneFastjet){
+        XConeReclusteredJets XConeJetsCollection;
+        return XConeJetsCollection;
     }
 
     vector<int> subjet_list, subjet_list2, topjet_list;
@@ -745,7 +1177,7 @@ inline XConeReclusteredJets buildXConeJets(const rvec_f &pt, const rvec_f &eta, 
 
 //         //Check we got the number of topjets we asked for
 //         if(topjets.size() != 1){
-//             std::cout << "Found " << topjets.size() << " jets but only requested one top-jet.\n"
+//             //std::cout << "Found " << topjets.size() << " jets but only requested one top-jet.\n"
 //                         << "Added at least one jet." << std::endl;
 //         }
     }//loop over fatjets
@@ -816,147 +1248,7 @@ inline XConeReclusteredJets buildXConeJets(const rvec_f &pt, const rvec_f &eta, 
 
 
 
-// /**
-//     @short checks for opposite charge, compatible flavor quark pairs for W boson candidates
-// */
-// rvec_b dijetCands(const rvec_i &pdgId, const rvec_f &pt, const rvec_f &eta, const rvec_f &phi, float m0=80.4, float deltam=31.0)
-// {
-//     std::vector<bool> isValidCand(pdgId.size(), false);
-
-//     // Loop over the list of quarks
-//     for (size_t i = 0; i < pdgId.size(); i++) {
-
-//         // Select light quarks (u, d, s, c)
-//         if (!(abs(pdgId[i]) == 1 || abs(pdgId[i]) == 2 || abs(pdgId[i]) == 3 || abs(pdgId[i]) == 4)) continue;
-
-//         // Try to make a pair with charge +-1
-//         for (size_t j = i + 1; j < pdgId.size(); j++) {
-
-//             // Ensure the second quark is also light
-//             if (!(abs(pdgId[j]) == 1 || abs(pdgId[j]) == 2 || abs(pdgId[j]) == 3 || abs(pdgId[j]) == 4)) continue;
-
-//             // Require opposite pdgId sign (q+anti-q)
-//             if (pdgId[i] * pdgId[j] > 0) continue;
-
-//             //assign quark mass
-//             float mass1(get_mass(pdgId[i]));
-// //             if(abs(pdgId[i])==1) mass1=0.00470;
-// //             if(abs(pdgId[i])==2) mass1=0.00216;
-// //             if(abs(pdgId[i])==3) mass1=0.09350;
-// //             if(abs(pdgId[i])==4) mass1=1.27300;
-//             if(mass1<0) continue;
-
-//             float mass2(get_mass(pdgId[j]));
-// //             if(abs(pdgId[j])==1) mass2=0.00470;
-// //             if(abs(pdgId[j])==2) mass2=0.00216;
-// //             if(abs(pdgId[j])==3) mass2=0.09350;
-// //             if(abs(pdgId[j])==4) mass2=1.27300;
-//             if(mass1<0) continue;
-
-//             // Compute mass of the quark pair system
-//             ROOT::Math::PtEtaPhiMVector pi(pt[i], eta[i], phi[i], mass1);
-//             ROOT::Math::PtEtaPhiMVector pj(pt[j], eta[j], phi[j], mass2);
-//             float mqq = (pi + pj).M();
-
-//             // Check compatibility with the W mass window
-//             if (fabs(mqq - m0) > deltam) continue;
-
-//             // Mark the pair as valid
-//             isValidCand[i] = true;
-//             isValidCand[j] = true;
-//         }
-//     }
-
-//     return rvec_b(isValidCand.begin(), isValidCand.end());
-// }
 
 
-
-// /**
-//     @short checks if a set of objects are isolated with respect to a reference in the eta-phi plane
-// */
-// rvec_b crossClean(const rvec_f &eta,const rvec_f &phi, const rvec_f &eta_ref, const rvec_f &phi_ref,float cone=0.4)
-// {
-//     std::vector<bool> isIso;
-
-//     //loop over the first list of objects
-//     for(size_t i=0; i<eta.size(); i++) {
-
-//         float minDR(9999.);
-//         for(size_t j=0; i<eta_ref.size(); i++) {
-//             minDR = min(minDR,ROOT::VecOps::DeltaR(eta[i],eta_ref[j],phi[i],phi_ref[j]));
-//         }
-//         isIso.push_back( minDR>cone );
-//     }
-
-//     return rvec_b(isIso.begin(), isIso.end());
-// }
-
-// /**
-//    @returns a kinematics feature of a two body system
-// */
-// float kinematics2lq(const int &pdgId1, const float &pt1, const float &eta1, const float &phi1,
-//                    const int &pdgId2, const float &pt2, const float &eta2, const float &phi2,
-//                    std::string kin="mass")
-// {
-//     float m1(get_mass(pdgId1)), m2(get_mass(pdgId2));
-// //     if(abs(pdgId1)==1) m1 = 0.00470;
-// //     else if(abs(pdgId1)==2) m1 = 0.00216;
-// //     else if(abs(pdgId1)==3) m1 = 0.09350;
-// //     else if(abs(pdgId1)==4) m1 = 1.27300;
-
-// //     if(abs(pdgId2)==1) m2 = 0.00470;
-// //     else if(abs(pdgId2)==2) m2 = 0.00216;
-// //     else if(abs(pdgId2)==3) m2 = 0.09350;
-// //     else if(abs(pdgId2)==4) m2 = 1.27300;
-
-//     ROOT::Math::PtEtaPhiMVector p1(pt1, eta1, phi1, m1);
-//     ROOT::Math::PtEtaPhiMVector p2(pt2, eta2, phi2, m2);
-//     if(kin=="pt") return (p1+p2).Pt();
-//     if(kin=="eta") return (p1+p2).Eta();
-//     if(kin=="phi") return (p1+p2).Phi();
-//     return (p1+p2).M();
-// }
-
-#include <vector>
-#include "ROOT/RVec.hxx"
-
-// struct Lepton {
-//     float pt;
-//     float phi;
-//     float eta;
-//     int pdgId;
-// };
-
-// std::vector<Lepton> EventSelectionLepton(
-//     const ROOT::VecOps::RVec<float>& lepton_pt,
-//     const ROOT::VecOps::RVec<float>& lepton_eta,
-//     const ROOT::VecOps::RVec<float>& lepton_phi,
-//     const ROOT::VecOps::RVec<int>& lepton_pdgId,
-//     const ROOT::VecOps::RVec<int>& muon_mask,
-//     const ROOT::VecOps::RVec<float>& electron_pt,
-//     const ROOT::VecOps::RVec<float>& electron_phi,
-//     const ROOT::VecOps::RVec<float>& electron_eta,
-//     const ROOT::VecOps::RVec<int>& electron_pdgId,
-//     const ROOT::VecOps::RVec<int>& electron_mask) {
-
-//     std::vector<Lepton> leptonInfo;
-
-//     // Añadir información de muones seleccionados
-//     for (size_t i = 0; i < muon_pt.size(); ++i) {
-//         if (muon_mask[i]) {
-//             leptonInfo.push_back({muon_pt[i], muon_phi[i], muon_eta[i], muon_pdgId[i]});
-//         }
-//     }
-
-//     // Añadir información de electrones seleccionados
-//     for (size_t i = 0; i < electron_pt.size(); ++i) {
-//         if (electron_mask[i]) {
-//             leptonInfo.push_back({electron_pt[i], electron_phi[i], electron_eta[i], electron_pdgId[i]});
-//         }
-//     }
-
-//     return leptonInfo;
-// }
 
 #endif
