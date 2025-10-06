@@ -57,7 +57,7 @@ namespace ROOT {
       ::JetAntikTReclus *ptr = nullptr;
       static ::TVirtualIsAProxy* isa_proxy = new ::TIsAProxy(typeid(::JetAntikTReclus));
       static ::ROOT::TGenericClassInfo 
-         instance("JetAntikTReclus", "selection_helpers_BoostedTopQuark.h", 77,
+         instance("JetAntikTReclus", "selection_helpers_BoostedTopQuark.h", 180,
                   typeid(::JetAntikTReclus), ::ROOT::Internal::DefineBehavior(ptr, ptr),
                   &JetAntikTReclus_Dictionary, isa_proxy, 4,
                   sizeof(::JetAntikTReclus) );
@@ -88,8 +88,6 @@ namespace ROOT {
 } // end of namespace ROOT
 
 namespace ROOT {
-   static TClass *Lepton_Dictionary();
-   static void Lepton_TClassManip(TClass*);
    static void *new_Lepton(void *p = nullptr);
    static void *newArray_Lepton(Long_t size, void *p);
    static void delete_Lepton(void *p);
@@ -100,11 +98,11 @@ namespace ROOT {
    static TGenericClassInfo *GenerateInitInstanceLocal(const ::Lepton*)
    {
       ::Lepton *ptr = nullptr;
-      static ::TVirtualIsAProxy* isa_proxy = new ::TIsAProxy(typeid(::Lepton));
+      static ::TVirtualIsAProxy* isa_proxy = new ::TInstrumentedIsAProxy< ::Lepton >(nullptr);
       static ::ROOT::TGenericClassInfo 
-         instance("Lepton", "selection_helpers_BoostedTopQuark.h", 123,
+         instance("Lepton", ::Lepton::Class_Version(), "selection_helpers_BoostedTopQuark.h", 226,
                   typeid(::Lepton), ::ROOT::Internal::DefineBehavior(ptr, ptr),
-                  &Lepton_Dictionary, isa_proxy, 4,
+                  &::Lepton::Dictionary, isa_proxy, 4,
                   sizeof(::Lepton) );
       instance.SetNew(&new_Lepton);
       instance.SetNewArray(&newArray_Lepton);
@@ -119,17 +117,6 @@ namespace ROOT {
    }
    // Static variable to force the class initialization
    static ::ROOT::TGenericClassInfo *_R__UNIQUE_DICT_(Init) = GenerateInitInstanceLocal(static_cast<const ::Lepton*>(nullptr)); R__UseDummy(_R__UNIQUE_DICT_(Init));
-
-   // Dictionary for non-ClassDef classes
-   static TClass *Lepton_Dictionary() {
-      TClass* theClass =::ROOT::GenerateInitInstanceLocal(static_cast<const ::Lepton*>(nullptr))->GetClass();
-      Lepton_TClassManip(theClass);
-   return theClass;
-   }
-
-   static void Lepton_TClassManip(TClass* ){
-   }
-
 } // end of namespace ROOT
 
 namespace ROOT {
@@ -145,7 +132,7 @@ namespace ROOT {
       ::JetReclus *ptr = nullptr;
       static ::TVirtualIsAProxy* isa_proxy = new ::TInstrumentedIsAProxy< ::JetReclus >(nullptr);
       static ::ROOT::TGenericClassInfo 
-         instance("JetReclus", ::JetReclus::Class_Version(), "selection_helpers_BoostedTopQuark.h", 272,
+         instance("JetReclus", ::JetReclus::Class_Version(), "selection_helpers_BoostedTopQuark.h", 695,
                   typeid(::JetReclus), ::ROOT::Internal::DefineBehavior(ptr, ptr),
                   &::JetReclus::Dictionary, isa_proxy, 4,
                   sizeof(::JetReclus) );
@@ -177,7 +164,7 @@ namespace ROOT {
       ::TopJetReclus *ptr = nullptr;
       static ::TVirtualIsAProxy* isa_proxy = new ::TInstrumentedIsAProxy< ::TopJetReclus >(nullptr);
       static ::ROOT::TGenericClassInfo 
-         instance("TopJetReclus", ::TopJetReclus::Class_Version(), "selection_helpers_BoostedTopQuark.h", 293,
+         instance("TopJetReclus", ::TopJetReclus::Class_Version(), "selection_helpers_BoostedTopQuark.h", 716,
                   typeid(::TopJetReclus), ::ROOT::Internal::DefineBehavior(ptr, ptr),
                   &::TopJetReclus::Dictionary, isa_proxy, 4,
                   sizeof(::TopJetReclus) );
@@ -209,7 +196,7 @@ namespace ROOT {
       ::XConeReclusteredJets *ptr = nullptr;
       static ::TVirtualIsAProxy* isa_proxy = new ::TInstrumentedIsAProxy< ::XConeReclusteredJets >(nullptr);
       static ::ROOT::TGenericClassInfo 
-         instance("XConeReclusteredJets", ::XConeReclusteredJets::Class_Version(), "selection_helpers_BoostedTopQuark.h", 314,
+         instance("XConeReclusteredJets", ::XConeReclusteredJets::Class_Version(), "selection_helpers_BoostedTopQuark.h", 737,
                   typeid(::XConeReclusteredJets), ::ROOT::Internal::DefineBehavior(ptr, ptr),
                   &::XConeReclusteredJets::Dictionary, isa_proxy, 4,
                   sizeof(::XConeReclusteredJets) );
@@ -227,6 +214,41 @@ namespace ROOT {
    // Static variable to force the class initialization
    static ::ROOT::TGenericClassInfo *_R__UNIQUE_DICT_(Init) = GenerateInitInstanceLocal(static_cast<const ::XConeReclusteredJets*>(nullptr)); R__UseDummy(_R__UNIQUE_DICT_(Init));
 } // end of namespace ROOT
+
+//______________________________________________________________________________
+atomic_TClass_ptr Lepton::fgIsA(nullptr);  // static to hold class pointer
+
+//______________________________________________________________________________
+const char *Lepton::Class_Name()
+{
+   return "Lepton";
+}
+
+//______________________________________________________________________________
+const char *Lepton::ImplFileName()
+{
+   return ::ROOT::GenerateInitInstanceLocal((const ::Lepton*)nullptr)->GetImplFileName();
+}
+
+//______________________________________________________________________________
+int Lepton::ImplFileLine()
+{
+   return ::ROOT::GenerateInitInstanceLocal((const ::Lepton*)nullptr)->GetImplFileLine();
+}
+
+//______________________________________________________________________________
+TClass *Lepton::Dictionary()
+{
+   fgIsA = ::ROOT::GenerateInitInstanceLocal((const ::Lepton*)nullptr)->GetClass();
+   return fgIsA;
+}
+
+//______________________________________________________________________________
+TClass *Lepton::Class()
+{
+   if (!fgIsA.load()) { R__LOCKGUARD(gInterpreterMutex); fgIsA = ::ROOT::GenerateInitInstanceLocal((const ::Lepton*)nullptr)->GetClass(); }
+   return fgIsA;
+}
 
 //______________________________________________________________________________
 atomic_TClass_ptr JetReclus::fgIsA(nullptr);  // static to hold class pointer
@@ -353,6 +375,18 @@ namespace ROOT {
       (static_cast<current_t*>(p))->~current_t();
    }
 } // end of namespace ROOT for class ::JetAntikTReclus
+
+//______________________________________________________________________________
+void Lepton::Streamer(TBuffer &R__b)
+{
+   // Stream an object of class Lepton.
+
+   if (R__b.IsReading()) {
+      R__b.ReadClassBuffer(Lepton::Class(),this);
+   } else {
+      R__b.WriteClassBuffer(Lepton::Class(),this);
+   }
+}
 
 namespace ROOT {
    // Wrappers around operator new

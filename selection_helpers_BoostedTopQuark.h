@@ -140,7 +140,7 @@ inline float compute_btagWeight(const rvec_f &jet_pts, const rvec_f &jet_etas, c
         }
 
         float jet_w = 1;
-        if (jet_btags[i] > 0.6553) {
+        if (jet_btags[i] > 0.4648) {
             jet_w = sf;
         } else {
             jet_w = (1 - sf * eff) / (1 - eff);
