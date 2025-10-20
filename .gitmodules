@@ -1,0 +1,4 @@
+[submodule "btvNanoAndXCone-prod"]
+	path = btvNanoAndXCone-prod
+	url = https://github.com/cmunozdi/btvNanoAndXCone-prod.git
+	branch = NanoAODv12_22Sep2023
