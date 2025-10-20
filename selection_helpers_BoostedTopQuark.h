@@ -140,7 +140,7 @@ inline float compute_btagWeight(const rvec_f &jet_pts, const rvec_f &jet_etas, c
         }
 
         float jet_w = 1;
-        if (jet_btags[i] > 0.4648) {
+        if (jet_btags[i] > 0.4648) { //for 2023 0.6553
             jet_w = sf;
         } else {
             jet_w = (1 - sf * eff) / (1 - eff);
@@ -303,7 +303,7 @@ inline float compute_ptrel_new(const TLorentzVector& muon,
     };
 
     // Then the conditions to apply the correction
-    string jec = "Summer23Prompt23_V2_MC",
+    string jec = "Summer24Prompt24_V1_MC", //"Summer23Prompt23_V2_MC",
            lvl = "L1L2L3Res",
            algo = "AK4PFPuppi";
 
@@ -561,7 +561,7 @@ inline Lepton triggerLepton(const rvec_f &pt_le, const rvec_f &eta_le, const rve
 
         // Electrones con 45 < pt < 120 GeV: aplicar criterio de aislamiento
         if ((!isMuon || AnalysisCuts) && abs(pdgId_le[i]) == 11 && pt_le[i] < 120) {
-            if(AnalysisCuts && pt_le[i] < 60.0) continue;
+            if(AnalysisCuts && pt_le[i] < 55.0) continue;
             else if (!AnalysisCuts && pt_le[i] < 45.0) continue;
             // Calcular aislamiento
             float I_ch = 0.0, I_gamma = 0.0, I_neutral = 0.0;

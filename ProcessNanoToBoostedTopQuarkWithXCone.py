@@ -45,7 +45,7 @@ output_file_lumi = args.output.replace(".root", "_lumi.root")
 ROOT.gInterpreter.Declare('#include "selection_helpers_BoostedTopQuark.h"') ##RUN CRAB
 # Llamar a la función para inicializar `cset`
 ROOT.gInterpreter.ProcessLine("initializeCorrectionSet();")
-ROOT.gInterpreter.ProcessLine("initializeBTagCorrectionSet();")
+# ROOT.gInterpreter.ProcessLine("initializeBTagCorrectionSet();")
 # verbosity = ROOT.Experimental.RLogScopedVerbosity(ROOT.Detail.RDF.RDFLogChannel(), ROOT.Experimental.ELogLevel.kInfo)
 
 ROOT.ROOT.EnableImplicitMT()
@@ -56,10 +56,6 @@ rdf_lumi = ROOT.RDataFrame("LuminosityBlocks", input_files)
 rdf_lumi.Snapshot('LuminosityBlocks', output_file_lumi)
 rdf = ROOT.RDataFrame("Events", input_files)
 
-# Only for ttbar samples, add the top pt reweighting
-# rdf = rdf.Define("GenPartTop_pt", "GenPart_pt[(abs(GenPart_pdgId) == 6) && (GenPart_statusFlags & (1<<13)) != 0]") \
-#          .Define("TopPtWeight_dataPowheg", "GenPartTop_pt.size() == 2 ? sqrt( exp(0.0615 - 0.0005*GenPartTop_pt[0]) * exp(0.0615 - 0.0005*GenPartTop_pt[1]) ) : 1.0") \
-#          .Define("TopPtWeight_NNLOpNLOEW", "GenPartTop_pt.size() == 2 ? sqrt((0.103*exp(-0.0118*GenPartTop_pt[0])-0.000134*GenPartTop_pt[0]+0.973)*(0.103*exp(-0.0118*GenPartTop_pt[1])-0.000134*GenPartTop_pt[1]+0.973)) : 1.0") \
 
 # Define Jet_passTightID
 rdf = rdf.Define("Jet_passJetIdTight", "pass_JetIdTightLepVeto(Jet_eta, Jet_neHEF, Jet_neEmEF, Jet_chMultiplicity, Jet_neMultiplicity, \
@@ -111,8 +107,13 @@ rdf = rdf.Define('pass_detector_selection', '''
                 ''')
 
 if isMC:
+
+    # Only for ttbar samples, add the top pt reweighting
+    rdf = rdf.Define("GenPartTop_pt", "GenPart_pt[(abs(GenPart_pdgId) == 6) && (GenPart_statusFlags & (1<<13)) != 0]") \
+             .Define("TopPtWeight_dataPowheg", "GenPartTop_pt.size() == 2 ? sqrt( exp(0.0615 - 0.0005*GenPartTop_pt[0]) * exp(0.0615 - 0.0005*GenPartTop_pt[1]) ) : 1.0") \
+             .Define("TopPtWeight_NNLOpNLOEW", "GenPartTop_pt.size() == 2 ? sqrt((0.103*exp(-0.0118*GenPartTop_pt[0])-0.000134*GenPartTop_pt[0]+0.973)*(0.103*exp(-0.0118*GenPartTop_pt[1])-0.000134*GenPartTop_pt[1]+0.973)) : 1.0") \
     #Define b-tagging weights
-    # rdf = rdf.Define("btagWeight", "compute_btagWeight(Jet_pt, Jet_eta, Jet_hadronFlavour, Jet_btagDeepFlavB)") \
+    # rdf = rdf.Define("btagWeight", "compute_btagWeight(Jet_pt, Jet_eta, Jet_hadronFlavour, Jet_btagUParTAK4B)") \
     # Only execute this line if we are processing MC  Get_pTmiss(GenCands_pt, GenCands_phi) && (n_gen_fatjets > 0
     rdf = rdf.Define('GenCands_jetIdx', 'calculateGenCandsJetIdx(GenJetCands_genCandsIdx, GenJetCands_jetIdx, nGenCands, nGenJet)') \
              .Define('gen_muon', 'triggerLepton(GenCands_pt, GenCands_eta, GenCands_phi, GenCands_pdgId, GenCands_jetIdx, ROOT::VecOps::RVec<bool>(), GenCands_pt, GenCands_eta, GenCands_phi, GenCands_pdgId, GenJet_pt, GenJet_eta, GenJet_phi, GenJet_mass, ROOT::VecOps::RVec<bool>(GenJet_eta.size(), true), ROOT::VecOps::RVec<float>(GenJet_pt.size(), 0.0), ROOT::VecOps::RVec<float>(GenJet_pt.size(), 0.0), 0, 25, true, false, true)') \
