@@ -6,15 +6,15 @@ import os
 from glob import glob
 
 #Bool variables to know over which sample should we run the code
-is_ttbar_semi = False
-is_ttbar_bck = False
-is_singletop = False
-is_wjets = False
-is_qcdmu = False
-is_dy = False
-is_vv = False
-is_data0 = False
-is_data1 = False
+is_ttbar_semi = True
+is_ttbar_bck = True
+is_singletop = True
+is_wjets = True
+is_qcdmu = True
+is_dy = True
+is_vv = True
+is_data0 = True
+is_data1 = True
 
 save_roots_boosted_selection = False
 
@@ -83,7 +83,7 @@ def create_rdf_with_weights(input_dir, cross_section, luminosity, max_files=None
     # Crear el RDataFrame solo con los archivos válidos
     rdf = ROOT.RDataFrame("Events", valid_files)
     if isTTbar:
-        rdf = rdf.Define("eventWeight", f"{event_weight}*genWeight*TopPtWeight_NNLOpNLOEW*0.73") # add 0.7 to match data/MC (without btag SF and Trigger SF)
+        rdf = rdf.Define("eventWeight", f"{event_weight}*genWeight*TopPtWeight_NNLOpNLOEW") # add 0.7 to match data/MC (without btag SF and Trigger SF)
     else:
         rdf = rdf.Define("eventWeight", f"{event_weight}*genWeight") # > 0 ? genWeight : abs(genWeight)
     return rdf
@@ -488,7 +488,7 @@ def apply_event_selection(rdfs, isMC=True, TWPbtag2023=0.6553):
             .Define('lepton_trg_pdgId', 'lepton.pdgId[selected_lepton_idx]') \
             .Define('lepton_trg_dR', 'lepton.dR_to_jet[selected_lepton_idx]') \
             .Define('lepton_trg_ptrel', 'lepton.pt_rel_to_jet[selected_lepton_idx]') \
-            .Filter("Sum((Muon_pt == lepton_trg_pt) && (Muon_eta == lepton_trg_eta) && (Muon_phi == lepton_trg_phi) && (Muon_highPtId == 2) && (Muon_tkIsoId >= 1)) == 1", "Muon seleccionado con highPtId==2") \
+            .Filter("Sum((Muon_pt == lepton_trg_pt) && (Muon_eta == lepton_trg_eta) && (Muon_phi == lepton_trg_phi)) == 1", "Muon seleccionado con highPtId==2; I removed && (Muon_highPtId == 2) && (Muon_tkIsoId >= 1)") \
             .Define(
                "lepton_tuneP_pt",
                "Muon_tunepRelPt[ROOT::VecOps::ArgMax((Muon_pt == lepton_trg_pt) && (Muon_eta == lepton_trg_eta) && (Muon_phi == lepton_trg_phi) && (Muon_highPtId == 2) && (Muon_tkIsoId >= 1))] * lepton_trg_pt"
