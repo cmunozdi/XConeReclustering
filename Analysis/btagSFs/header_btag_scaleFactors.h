@@ -28,35 +28,46 @@ using rvec_f = const RVec<float>;
 using rvec_i = const RVec<int>;
 using rvec_b = const RVec<bool>;
 
-// Variable global para el archivo de sf para bjets
+// Global variable for correction files
 std::unique_ptr<correction::CorrectionSet> sf_btagset;
 std::unique_ptr<correction::CorrectionSet> eff_btagset;
 std::unique_ptr<correction::CorrectionSet> sf_muoset;
+std::unique_ptr<correction::CorrectionSet> sf_purew;
 
-// Inicializar `cset` al comienzo del header
+// Initialize `cset` at the begining of the header
 inline void initializeBTagCorrectionSet() {
     fs::path fname_sf_btag_2023 = "./btagSFs/btagging.json.gz"; //"/eos/user/c/cmunozdi/SWAN_projects/BtagScaleFactors/btagging.json.gz"; 
     fs::path fname_eff_btag_2023 = "./btagSFs/btag_efficiencies_combined.json"; //"/eos/project/r/rtu-topanalysis/AnalysisSamples_JetTightIDNoLepVeto/output_efficiencies_rdf/btag_efficiencies_combined.json"; 
     // fs::path fname_btag_2023 = "/cvmfs/cms.cern.ch/rsync/cms-nanoAOD/jsonpog-integration/POG/BTV/2023_Summer23/btagging.json.gz";
     if (!fs::exists(fname_sf_btag_2023)) {
-        throw std::runtime_error("El archivo de corrección no existe: " + fname_sf_btag_2023.string());
+        throw std::runtime_error("Correction file does not exist: " + fname_sf_btag_2023.string());
     }
     sf_btagset = correction::CorrectionSet::from_file(fname_sf_btag_2023.string());
-    std::cout << "Archivo de corrección cargado exitosamente: " << fname_sf_btag_2023.string() << std::endl;
+    std::cout << "Correction file loaded susscessfully: " << fname_sf_btag_2023.string() << std::endl;
+
     if (!fs::exists(fname_eff_btag_2023)) {
-        throw std::runtime_error("El archivo de corrección no existe: " + fname_eff_btag_2023.string());
+        throw std::runtime_error("Correction file does not exist: " + fname_eff_btag_2023.string());
     }
     eff_btagset = correction::CorrectionSet::from_file(fname_eff_btag_2023.string());
-    std::cout << "Archivo de corrección cargado exitosamente: " << fname_eff_btag_2023.string() << std::endl;
+    std::cout << "Correction file loaded susscessfully: " << fname_eff_btag_2023.string() << std::endl;
 }
 
 inline void initializeMUOCorrectionSet() {
     fs::path fname_sf_MUO_2023 = "./muoSFs/muon_HighPt.json.gz";
     if (!fs::exists(fname_sf_MUO_2023)) {
-        throw std::runtime_error("El archivo de corrección no existe: " + fname_sf_MUO_2023.string());
+        throw std::runtime_error("Correction file does not exist: " + fname_sf_MUO_2023.string());
     }
     sf_muoset = correction::CorrectionSet::from_file(fname_sf_MUO_2023.string());
-    std::cout << "Archivo de corrección cargado exitosamente: " << fname_sf_MUO_2023.string() << std::endl;
+    std::cout << "Correction file loaded susscessfully: " << fname_sf_MUO_2023.string() << std::endl;
+}
+
+inline void initializePUReweightingCorrectionSet() {
+    fs::path fname_puReweighting_2023 = "./puRew/puWeights.json.gz";
+    if (!fs::exists(fname_puReweighting_2023)) {
+        throw std::runtime_error("Correction file does not exist: " + fname_puReweighting_2023.string());
+    }
+    sf_purew = correction::CorrectionSet::from_file(fname_puReweighting_2023.string());
+    std::cout << "Correction file loaded susscessfully: " << fname_puReweighting_2023.string() << std::endl;
 }
 
 // Funtion to compute btagWeight of the event given the jet collection
@@ -85,7 +96,7 @@ inline float compute_btagWeight(const rvec_f &jet_pts, const rvec_f &jet_etas, c
             
             std::cout << "Jet " << i << ": pt = " << jet_pts[i] << ", eta = " << jet_etas[i] 
                   << ", flav = " << static_cast<int>(jet_flavs[i]) << ", btag = " << jet_btags[i] << std::endl;
-            std::cerr << "Error al evaluar el SF para el jet " << i << ": " << e.what() << ". Value of sf=" << sf << std::endl;
+            std::cerr << "Error evaluationg the SF for jet " << i << ": " << e.what() << ". Value of sf=" << sf << std::endl;
             continue;
         }
 
@@ -98,7 +109,7 @@ inline float compute_btagWeight(const rvec_f &jet_pts, const rvec_f &jet_etas, c
             
             std::cout << "Jet " << i << ": pt = " << jet_pts[i] << ", eta = " << jet_etas[i] 
                   << ", flav = " << static_cast<int>(jet_flavs[i]) << ", btag = " << jet_btags[i] << std::endl;
-            std::cerr << "Error al evaluar la eficiencia para el jet " << i << ": " << e.what() << ". Value of eff=" << eff << std::endl;
+            std::cerr << "Error evaluating efficiency for jet " << i << ": " << e.what() << ". Value of eff=" << eff << std::endl;
             continue;
         }
 
@@ -124,30 +135,43 @@ inline float compute_MUOWeight(const float &muo_pt, const float &muo_eta){
     try {
         w_global = sf_muoset->at("NUM_GlobalMuons_DEN_TrackerMuonProbes")->evaluate({muo_eta, muo_p, "nominal"});
     } catch (const std::exception &e) {
-        std::cerr << "Error en w_global: " << e.what() << std::endl;
+        std::cerr << "Error in w_global: " << e.what() << std::endl;
     }
 
     try {
         w_highptid = sf_muoset->at("NUM_HighPtID_DEN_GlobalMuonProbes")->evaluate({muo_eta, muo_pt, "nominal"});
     } catch (const std::exception &e) {
-        std::cerr << "Error en w_highptid: " << e.what() << std::endl;
+        std::cerr << "Error in w_highptid: " << e.what() << std::endl;
     }
 
     try {
         w_iso = sf_muoset->at("NUM_probe_LooseRelTkIso_DEN_HighPtProbes")->evaluate({muo_eta, muo_pt, "nominal"});
     } catch (const std::exception &e) {
-        std::cerr << "Error en w_iso: " << e.what() << std::endl;
+        std::cerr << "Error in w_iso: " << e.what() << std::endl;
     }
 
     try {
         w_hlt = sf_muoset->at("NUM_HLT_DEN_HighPtLooseRelIsoProbes")->evaluate({muo_eta, muo_pt, "nominal"});
     } catch (const std::exception &e) {
-        std::cerr << "Error en w_hlt: " << e.what() << std::endl;
+        std::cerr << "Error in w_hlt: " << e.what() << std::endl;
     }
 
     weight = w_global * w_highptid * w_iso * w_hlt;
     return weight;
 
+}
+
+//Function to compute PU reweighting correction
+inline float compute_PUReweight(const float &PU_NumTrueInteractions){
+    float weight = 1.;
+
+    try{
+        weight = sf_purew->at("Collisions2023_366403_369802_eraBC_GoldenJson")->evaluate({PU_NumTrueInteractions, "nominal"});
+    } catch (const std::exception &e) {
+        std::cerr << "Error in w_pu: " << e.what() << std::endl;
+    }
+
+    return weight;
 }
 
 struct Lepton{

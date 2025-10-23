@@ -24,6 +24,7 @@ ROOT.gInterpreter.Declare('#include "./btagSFs/header_btag_scaleFactors.h"')
 # Inicializar los CorrectionSet SOLO UNA VEZ
 ROOT.gInterpreter.ProcessLine("initializeBTagCorrectionSet();")
 ROOT.gInterpreter.ProcessLine("initializeMUOCorrectionSet();")
+ROOT.gInterpreter.ProcessLine("initializePUReweightingCorrectionSet();")
 
 ROOT.ROOT.EnableImplicitMT()
 
@@ -488,12 +489,12 @@ def apply_event_selection(rdfs, isMC=True, TWPbtag2023=0.6553):
             .Define('lepton_trg_pdgId', 'lepton.pdgId[selected_lepton_idx]') \
             .Define('lepton_trg_dR', 'lepton.dR_to_jet[selected_lepton_idx]') \
             .Define('lepton_trg_ptrel', 'lepton.pt_rel_to_jet[selected_lepton_idx]') \
-            .Filter("Sum((Muon_pt == lepton_trg_pt) && (Muon_eta == lepton_trg_eta) && (Muon_phi == lepton_trg_phi)) == 1", "Muon seleccionado con highPtId==2; I removed && (Muon_highPtId == 2) && (Muon_tkIsoId >= 1)") \
+            .Filter("Sum((Muon_pt == lepton_trg_pt) && (Muon_eta == lepton_trg_eta) && (Muon_phi == lepton_trg_phi) && (Muon_highPtId == 2) && (Muon_tkIsoId >= 1)) == 1", "Muon seleccionado con highPtId==2") \
             .Define(
                "lepton_tuneP_pt",
                "Muon_tunepRelPt[ROOT::VecOps::ArgMax((Muon_pt == lepton_trg_pt) && (Muon_eta == lepton_trg_eta) && (Muon_phi == lepton_trg_phi) && (Muon_highPtId == 2) && (Muon_tkIsoId >= 1))] * lepton_trg_pt"
             ) \
-            .Redefine('lepton_trg_pt', 'lepton_tuneP_pt') \
+            # .Redefine('lepton_trg_pt', 'lepton_tuneP_pt') \
             .Define('lepton_trg_n_lep', 'Sum((lepton.pt > 55) && (abs(lepton.eta) < 2.4))') \
             #Si ya existe la rama Num_lep_above_15, redefinela, si no, créala
             # .Redefine('Num_lep_above_15', "Sum(Muon_pt > 15 && abs(Muon_eta) < 2.4) + Sum(Electron_pt > 15 && abs(Electron_eta) < 2.4)")
@@ -572,6 +573,9 @@ def apply_event_selection(rdfs, isMC=True, TWPbtag2023=0.6553):
 #                      (abs(lepton.pdgId[0]) == 11 && lepton.pt[0] < 120 && HLT_Ele30_WPTight_Gsf)")
             .Filter("pass_trigger", "Trigger selection")
 
+            # MET filters
+            .Filter("Flag_goodVertices && Flag_globalSuperTightHalo2016Filter && Flag_EcalDeadCellTriggerPrimitiveFilter && Flag_BadPFMuonFilter && Flag_BadPFMuonDzFilter && Flag_hfNoisyHitsFilter && Flag_eeBadScFilter")
+
         )
         if isMC:
             # Aplicar corrección de b-tagging si es MC
@@ -586,15 +590,18 @@ def apply_event_selection(rdfs, isMC=True, TWPbtag2023=0.6553):
             rdf_filtered = rdf_filtered.Define("muoWeight", "compute_MUOWeight(lepton_trg_pt, lepton_trg_eta)") \
                                        .Redefine("eventWeight", "eventWeight * muoWeight")
 
+            rdf_filtered = rdf_filtered.Define("PUReweighting", "compute_PUReweight(Pileup_nTrueInt)") \
+                                       .Redefine("eventWeight", "eventWeight * PUReweighting")
+
         filtered_rdfs.append(rdf_filtered)
 
     return filtered_rdfs
 
 
-columns_mc = ["eventWeight", "btagWeight", "muoWeight", #"event", "run", "luminosityBlock", "lepton.pt", "lepton.eta", "lepton.phi", "lepton.pdgId", "lepton.n_lep", "lepton.dR_to_jet", "lepton.pt_rel_to_jet", "lepton.closest_jet_idx", #Uncomment this when lepton already has dR and ptrel
+columns_mc = ["eventWeight", "btagWeight", "muoWeight", "PUReweighting", #"event", "run", "luminosityBlock", "lepton.pt", "lepton.eta", "lepton.phi", "lepton.pdgId", "lepton.n_lep", "lepton.dR_to_jet", "lepton.pt_rel_to_jet", "lepton.closest_jet_idx", #Uncomment this when lepton already has dR and ptrel
 #               "muon.pt", "muon.eta", "muon.phi", "muon.pdgId", "electron.pt", "electron.eta", "electron.phi", "electron.pdgId",
             #   "Muon_pt", "Muon_eta", "Muon_phi", "Muon_pdgId", "Electron_pt", "Electron_eta", "Electron_phi", "Electron_pdgId", "Num_lep_above_15", "Muon_jetIdx",
-              "lepton_trg_pt", "lepton_trg_eta", "lepton_trg_phi", "lepton_trg_pdgId", "lepton_trg_n_lep", "lepton_trg_dR", "lepton_trg_ptrel",
+              "lepton_trg_pt", "lepton_tuneP_pt", "lepton_trg_eta", "lepton_trg_phi", "lepton_trg_pdgId", "lepton_trg_n_lep", "lepton_trg_dR", "lepton_trg_ptrel",
             #   "PuppiMET_pt", "Jet_pt", "HLT_Mu50", "HLT_Ele30_WPTight_Gsf", "HLT_Ele115_CaloIdVT_GsfTrkIdT", "HLT_Photon175",
 #               "electron_trg.pt", "muon.pt",
               "Jet_pt", "Jet_eta", "Jet_btagDeepFlavB", "Jet_hadronFlavour", "Jet_passJetIdTightLepVeto", "Jet_passJetIdTight",
@@ -608,7 +615,7 @@ columns_mc = ["eventWeight", "btagWeight", "muoWeight", #"event", "run", "lumino
               "topjets.subjets_in_topjet", "topjets.pt_W", "topjets.eta_W", "topjets.phi_W",
               "topjets.mass_W", "topjets.subjets_in_W", "fastjet_CandsList", "subjet_CandsList", "fatjets.findLepton",
               "pass_detector_selection", ]#"PFCands_pt", "PFCands_eta", "PFCands_phi", "PFCands_pdgId"]
-columns_data = [col for col in columns_mc if col not in ["eventWeight", "btagWeight", "muoWeight", "Jet_hadronFlavour"]]
+columns_data = [col for col in columns_mc if col not in ["eventWeight", "btagWeight", "muoWeight", "PUReweighting", "Jet_hadronFlavour"]]
 # columns_data = columns_data + ["Jet_passJetIdTightLepVeto"]
 
 # DATA: MUON 0
@@ -1404,6 +1411,13 @@ plot_variable(branch="lepton_trg_pdgId", dfs_mc=[df_ttbar_muon, df_ttbar_bck_muo
 
 #Lepton pt
 plot_variable( branch="lepton_trg_pt", dfs_mc=[df_ttbar_muon, df_ttbar_bck_muon, df_singletop_muon, df_wjets_muon, df_qcdmu_muon, df_dy_muon, df_vv_muon][::-1], df_data=df_data_muon,
+              labels_mc=[r'$t\overline{t}\rightarrow l\nu2q$', r"$t\overline{t}\rightarrow others$",  "SingleTop", "W+jets", "QCD", "DY", "VV"][::-1], colors_mc=["red", "tomato", "gold", "lime", "deepskyblue", "blue", "indigo"][::-1],
+              bins=70, logy=False, xlim=(0, 400), #ylim=(0.75, 1e3),
+              xlabel=r'$p_T$ muon [GeV]', title='tight_lepton_trg_pt'
+             )
+
+#Lepton TuneP pt              
+plot_variable( branch="lepton_tuneP_pt", dfs_mc=[df_ttbar_muon, df_ttbar_bck_muon, df_singletop_muon, df_wjets_muon, df_qcdmu_muon, df_dy_muon, df_vv_muon][::-1], df_data=df_data_muon,
               labels_mc=[r'$t\overline{t}\rightarrow l\nu2q$', r"$t\overline{t}\rightarrow others$",  "SingleTop", "W+jets", "QCD", "DY", "VV"][::-1], colors_mc=["red", "tomato", "gold", "lime", "deepskyblue", "blue", "indigo"][::-1],
               bins=70, logy=False, xlim=(0, 400), #ylim=(0.75, 1e3),
               xlabel=r'$p_T$ muon [GeV]', title='tight_lepton_trg_pt'
