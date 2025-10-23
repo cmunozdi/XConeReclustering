@@ -109,9 +109,9 @@ rdf = rdf.Define('pass_detector_selection', '''
 if isMC:
 
     # Only for ttbar samples, add the top pt reweighting
-    rdf = rdf.Define("GenPartTop_pt", "GenPart_pt[(abs(GenPart_pdgId) == 6) && (GenPart_statusFlags & (1<<13)) != 0]") \
-             .Define("TopPtWeight_dataPowheg", "GenPartTop_pt.size() == 2 ? sqrt( exp(0.0615 - 0.0005*GenPartTop_pt[0]) * exp(0.0615 - 0.0005*GenPartTop_pt[1]) ) : 1.0") \
-             .Define("TopPtWeight_NNLOpNLOEW", "GenPartTop_pt.size() == 2 ? sqrt((0.103*exp(-0.0118*GenPartTop_pt[0])-0.000134*GenPartTop_pt[0]+0.973)*(0.103*exp(-0.0118*GenPartTop_pt[1])-0.000134*GenPartTop_pt[1]+0.973)) : 1.0") \
+    # rdf = rdf.Define("GenPartTop_pt", "GenPart_pt[(abs(GenPart_pdgId) == 6) && (GenPart_statusFlags & (1<<13)) != 0]") \
+    #          .Define("TopPtWeight_dataPowheg", "GenPartTop_pt.size() == 2 ? sqrt( exp(0.0615 - 0.0005*GenPartTop_pt[0]) * exp(0.0615 - 0.0005*GenPartTop_pt[1]) ) : 1.0") \
+    #          .Define("TopPtWeight_NNLOpNLOEW", "GenPartTop_pt.size() == 2 ? sqrt((0.103*exp(-0.0118*GenPartTop_pt[0])-0.000134*GenPartTop_pt[0]+0.973)*(0.103*exp(-0.0118*GenPartTop_pt[1])-0.000134*GenPartTop_pt[1]+0.973)) : 1.0") \
     #Define b-tagging weights
     # rdf = rdf.Define("btagWeight", "compute_btagWeight(Jet_pt, Jet_eta, Jet_hadronFlavour, Jet_btagUParTAK4B)") \
     # Only execute this line if we are processing MC  Get_pTmiss(GenCands_pt, GenCands_phi) && (n_gen_fatjets > 0
