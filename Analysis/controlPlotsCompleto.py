@@ -6,15 +6,15 @@ import os
 from glob import glob
 
 #Bool variables to know over which sample should we run the code
-is_ttbar_semi = False
-is_ttbar_bck = False
-is_singletop = False
+is_ttbar_semi = True
+is_ttbar_bck = True
+is_singletop = True
 is_wjets = True
-is_qcdmu = False
-is_dy = False
-is_vv = False
-is_data0 = False
-is_data1 = False
+is_qcdmu = True
+is_dy = True
+is_vv = True
+is_data0 = True
+is_data1 = True
 
 
 
@@ -467,7 +467,7 @@ def apply_event_selection(rdfs, isMC=True, TWPbtag2023=0.6553):
 #             .Define('lepton_trg_dR', 'lepton_trg.dR_to_jet')
 #             .Define('lepton_trg_ptrel', 'lepton_trg.pt_rel_to_jet')
 #             .Define('lepton_trg_n_lep', 'lepton_trg.n_lep')
-            .Filter('Sum(lepton.pt>55 && abs(lepton.eta)<2.4) == 1')
+            # .Filter('Sum(lepton.pt>55 && abs(lepton.eta)<2.4) == 1')
 # #             .Filter("lepton.n_lep>=1")
 #             .Define('lepton_trg_pt', 'lepton.pt[0]')
 #             .Define('lepton_trg_eta', 'lepton.eta[0]')
@@ -560,7 +560,7 @@ def apply_event_selection(rdfs, isMC=True, TWPbtag2023=0.6553):
 #################################################################################################################################################            
 
             # 6. There must be 3 subjets inside the topjet
-            .Filter("topjets.n_subjets == 3", "Three subjets inside the topjet")
+            # .Filter("topjets.n_subjets == 3", "Three subjets inside the topjet")
             # 7. The XCone jet from hadronic side must have pt > 350 GeV
             .Filter("topjets.pt > 350")
             # .Filter("fatjets.n_jets > 0", "At least one fatjet from XCone")
