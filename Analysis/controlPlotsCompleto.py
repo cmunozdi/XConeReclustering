@@ -6,22 +6,21 @@ import os
 from glob import glob
 
 #Bool variables to know over which sample should we run the code
-is_ttbar_semi = True
-is_ttbar_bck = True
-is_singletop = True
+is_ttbar_semi = False
+is_ttbar_bck = False
+is_singletop = False
 is_wjets = True
-is_qcdmu = True
-is_dy = True
-is_vv = True
-is_data0 = True
-is_data1 = True
-
-save_roots_boosted_selection = False
+is_qcdmu = False
+is_dy = False
+is_vv = False
+is_data0 = False
+is_data1 = False
 
 
-# Cargar el header (ajusta el path si es necesario)
+
+# Charging header (adjust path if necessary)
 ROOT.gInterpreter.Declare('#include "./btagSFs/header_btag_scaleFactors.h"')
-# Inicializar los CorrectionSet SOLO UNA VEZ
+# Initializing CorrectionSet ONLY ONCE
 ROOT.gInterpreter.ProcessLine("initializeBTagCorrectionSet();")
 ROOT.gInterpreter.ProcessLine("initializeMUOCorrectionSet();")
 ROOT.gInterpreter.ProcessLine("initializePUReweightingCorrectionSet();")
@@ -30,17 +29,17 @@ ROOT.ROOT.EnableImplicitMT()
 
 def get_pattern(input_dir):
     if any(keyword in input_dir for keyword in ["wjets", "ttbar"]):
-        return "**/250818*/**/*.root"  # Patrón específico para wjets y ttbar
+        return "**/250818*/**/*.root"  # Specific pattern for wjets and ttbar
     else:
-        return "**/250*/**/*.root"  # Patrón general para otros directorios
+        return "**/250*/**/*.root"  # General pattern for other directories
 
 def create_rdf_with_weights(input_dir, cross_section, luminosity, max_files=None, isTTbar=False):
-    # Elegir el patrón según si es QCDMu o no
+    # Choose the pattern depending on whether it is QCDMu or not
 #     pattern = "**/250622*/**/*.root"  if "QCDMu" in input_dir else  "**/250625*/**/*.root" if "TTbar" in input_dir else "**/250625*/**/*.root"
     pattern = "**/25*/**/*.root"
     all_root_files = glob(os.path.join(input_dir, pattern), recursive=True)
 
-    # Filtrar archivos que no terminan en coor.root, lumi.root, o runs.root
+    # Filter files that do not end with coor.root, lumi.root, or runs.root
     candidate_files = [
         f for f in all_root_files
         if not (f.endswith('events.root') or f.endswith('lumi.root') or f.endswith('runs.root'))
@@ -55,11 +54,11 @@ def create_rdf_with_weights(input_dir, cross_section, luminosity, max_files=None
             f.Close()
             continue
 
-        # Verificar que tenga TTree "Events"
+        # Check if it has TTree "Events"
         if f.Get("Events"):
             valid_files.append(file)
 
-        # Contar eventos generados si hay TTree "Runs"
+        # Count generated events if there is TTree "Runs"
         runs_tree = f.Get("Runs")
         if runs_tree:
             for entry in runs_tree:
@@ -67,26 +66,23 @@ def create_rdf_with_weights(input_dir, cross_section, luminosity, max_files=None
 
         f.Close()
 
-        # Si max_files está definido y ya tenemos suficientes archivos válidos, salimos
+        # If max_files is defined and we already have enough valid files, we exit the loop
         if max_files is not None and len(valid_files) >= max_files:
             break
 
     if not valid_files:
-        print(f"Advertencia: No se encontraron archivos válidos con TTree 'Events' en el directorio {input_dir}.")
-        return None  # O devolver un RDataFrame vacío si es necesario
+        print(f"Warning: No valid files with TTree 'Events' found in directory {input_dir}.")
+        return None  # Or return an empty RDataFrame if needed
 
     if total_gen_events_sumW == 0:
-        print(f"Advertencia: No se encontraron eventos generados en {input_dir}.")
-        return None  # O devolver un RDataFrame vacío si es necesario
+        print(f"Warning: No generated events found in {input_dir}.")
+        return None  # Or return an empty RDataFrame if needed
 
     event_weight = (luminosity * cross_section) / total_gen_events_sumW
 
-    # Crear el RDataFrame solo con los archivos válidos
+    # Create the RDataFrame only with the valid files
     rdf = ROOT.RDataFrame("Events", valid_files)
-    if isTTbar:
-        rdf = rdf.Define("eventWeight", f"{event_weight}*genWeight*TopPtWeight_NNLOpNLOEW") # add 0.7 to match data/MC (without btag SF and Trigger SF)
-    else:
-        rdf = rdf.Define("eventWeight", f"{event_weight}*genWeight") # > 0 ? genWeight : abs(genWeight)
+    rdf = rdf.Define("eventWeight", f"{event_weight}*genWeight") # > 0 ? genWeight : abs(genWeight)
     return rdf
 
 
@@ -481,7 +477,8 @@ def apply_event_selection(rdfs, isMC=True, TWPbtag2023=0.6553):
 #             .Define('lepton_trg_ptrel', 'lepton.pt_rel_to_jet[0]')
 #             .Define('lepton_trg_n_lep', 'lepton.n_lep')
             .Define('selected_lepton_idx', 'ROOT::VecOps::ArgMax(lepton.pt > 55 && abs(lepton.eta) < 2.4)') \
-            .Filter('abs(lepton.pdgId[selected_lepton_idx]) == 13') \
+            .Define('is_muon_trg', 'abs(lepton.pdgId[selected_lepton_idx]) == 13') \
+            .Filter('is_muon_trg') \
             # .Filter('(lepton.dR_to_jet[selected_lepton_idx] > 3.)&&(lepton.dR_to_jet[selected_lepton_idx] < 3.2)') \
             .Define('lepton_trg_pt', 'lepton.pt[selected_lepton_idx]') \
             .Define('lepton_trg_eta', 'lepton.eta[selected_lepton_idx]') \
@@ -489,7 +486,8 @@ def apply_event_selection(rdfs, isMC=True, TWPbtag2023=0.6553):
             .Define('lepton_trg_pdgId', 'lepton.pdgId[selected_lepton_idx]') \
             .Define('lepton_trg_dR', 'lepton.dR_to_jet[selected_lepton_idx]') \
             .Define('lepton_trg_ptrel', 'lepton.pt_rel_to_jet[selected_lepton_idx]') \
-            .Filter("Sum((Muon_pt == lepton_trg_pt) && (Muon_eta == lepton_trg_eta) && (Muon_phi == lepton_trg_phi) && (Muon_highPtId == 2) && (Muon_tkIsoId >= 1)) == 1", "Muon seleccionado con highPtId==2") \
+            .Define('num_muon_selected', 'Sum((Muon_pt == lepton_trg_pt) && (Muon_eta == lepton_trg_eta) && (Muon_phi == lepton_trg_phi) && (Muon_highPtId == 2) && (Muon_tkIsoId >= 1))') \
+            .Filter('num_muon_selected == 1', "Just 1 selected muon") \
             .Define(
                "lepton_tuneP_pt",
                "Muon_tunepRelPt[ROOT::VecOps::ArgMax((Muon_pt == lepton_trg_pt) && (Muon_eta == lepton_trg_eta) && (Muon_phi == lepton_trg_phi) && (Muon_highPtId == 2) && (Muon_tkIsoId >= 1))] * lepton_trg_pt"
@@ -553,12 +551,13 @@ def apply_event_selection(rdfs, isMC=True, TWPbtag2023=0.6553):
 #                 "Fatjet pt without lepton"
 #             )
 
-
-#             # 5. Subjets dentro del topjet con pt>30 y eta<2.5
-            .Filter(
-                f"Sum(subjets.pt[topjets.subjets_in_topjet] > 30 && abs(subjets.eta[topjets.subjets_in_topjet]) < 2.5) >= 3",
-                "Subjet pt and eta inside topjet"
-            )
+####################################APARENTLY THIS CAUSES THE ~0.73 OFFSET BETWEEN MC AND DATA###################################################
+#             # 5. Subjets dentro del topjet con pt>30 y eta<2.5 
+            # .Filter(
+            #     f"Sum(subjets.pt[topjets.subjets_in_topjet] > 30 && abs(subjets.eta[topjets.subjets_in_topjet]) < 2.5) >= 3",
+            #     "Subjet pt and eta inside topjet"
+            # )
+#################################################################################################################################################            
 
             # 6. There must be 3 subjets inside the topjet
             .Filter("topjets.n_subjets == 3", "Three subjets inside the topjet")
@@ -574,7 +573,8 @@ def apply_event_selection(rdfs, isMC=True, TWPbtag2023=0.6553):
             .Filter("pass_trigger", "Trigger selection")
 
             # MET filters
-            .Filter("Flag_goodVertices && Flag_globalSuperTightHalo2016Filter && Flag_EcalDeadCellTriggerPrimitiveFilter && Flag_BadPFMuonFilter && Flag_BadPFMuonDzFilter && Flag_hfNoisyHitsFilter && Flag_eeBadScFilter")
+            .Define("pass_MET_filters_2023", "Flag_goodVertices && Flag_globalSuperTightHalo2016Filter && Flag_EcalDeadCellTriggerPrimitiveFilter && Flag_BadPFMuonFilter && Flag_BadPFMuonDzFilter && Flag_hfNoisyHitsFilter && Flag_eeBadScFilter")
+            .Filter("pass_MET_filters_2023", "MET filters selection")
 
         )
         if isMC:
@@ -582,15 +582,26 @@ def apply_event_selection(rdfs, isMC=True, TWPbtag2023=0.6553):
             branches = set(rdf_filtered.GetColumnNames())
             if "btagWeight" in branches:
                 rdf_filtered = rdf_filtered.Redefine("btagWeight", "compute_btagWeight(Jet_pt, Jet_eta, Jet_hadronFlavour, Jet_btagDeepFlavB)") \
+                                           .Filter("std::isfinite(btagWeight)", "btagWeight is finite") \
                                            .Redefine("eventWeight", "eventWeight * btagWeight")
             else:
                 rdf_filtered = rdf_filtered.Define("btagWeight", "compute_btagWeight(Jet_pt, Jet_eta, Jet_hadronFlavour, Jet_btagDeepFlavB)") \
+                                           .Filter("std::isfinite(btagWeight)", "btagWeight is finite") \
                                            .Redefine("eventWeight", "eventWeight * btagWeight")
 
+            if "TopPtWeight_NNLOpNLOEW" in branches:
+                rdf_filtered = rdf_filtered.Filter("std::isfinite(TopPtWeight_NNLOpNLOEW)", "TopPtWeight_NNLOpNLOEW is finite") \
+                                           .Redefine("eventWeight", "eventWeight * TopPtWeight_NNLOpNLOEW")
+            else:
+                rdf_filtered = rdf_filtered.Define("TopPtWeight_NNLOpNLOEW", "1.")
+                
+
             rdf_filtered = rdf_filtered.Define("muoWeight", "compute_MUOWeight(lepton_trg_pt, lepton_trg_eta)") \
+                                       .Filter("std::isfinite(muoWeight)", "muoWeight is finite") \
                                        .Redefine("eventWeight", "eventWeight * muoWeight")
 
             rdf_filtered = rdf_filtered.Define("PUReweighting", "compute_PUReweight(Pileup_nTrueInt)") \
+                                       .Filter("std::isfinite(PUReweighting)", "PUReweighting is finite") \
                                        .Redefine("eventWeight", "eventWeight * PUReweighting")
 
         filtered_rdfs.append(rdf_filtered)
@@ -621,63 +632,49 @@ columns_data = [col for col in columns_mc if col not in ["eventWeight", "btagWei
 # DATA: MUON 0
 if is_data0:
     print("Creating RDataFrames for Data 0 samples...")
-    input_dirs_data0 = "/eos/project/r/rtu-topanalysis/cmunozdi/AnalysisSamples_JetTightIDNoLepVeto/Data/2023preBPix/Muon0/Run*" #"/eos/project/r/rtu-topanalysis/cmunozdi/AnalysisSamples/Data/2023preBPix/Muon0/**"  #"/eos/project/r/rtu-topanalysis/cmunozdi/AnalysisSamples_JetTightID/Data/2023preBPix/Muon0/**" #
+    input_dirs_data0 = "/eos/project/r/rtu-topanalysis/cmunozdi/AnalysisSamples_JetTightIDNoLepVeto_Full/Data/2023preBPix/Muon0/Run*"
     root_files_data0 = glob(os.path.join(input_dirs_data0, "**/**/*.root"))#"250818*/**/*.root")) #"**/**/*.root"))
     rdf_data0 = ROOT.RDataFrame("Events", root_files_data0)
 
     print("Applying event selection to Data 0...")
     rdf_data0 = apply_event_selection([rdf_data0], isMC=False)[0]
-    if save_roots_boosted_selection:
-        columns = list(rdf_data0.GetColumnNames())
-        rdf_clean = rdf_data0
-        for col in columns:
-            try:
-                rdf_clean = rdf_clean.FilterAvailable(col)
-                print(f"Column {col} filtered.")
-            except:
-                print(f"Column {col} could not be filtered.")
-        rdf_clean.Snapshot('Events', "/eos/project/r/rtu-topanalysis/cmunozdi/DataFramesPKL/2023preBPix/UsingLoosIsoAndTunepID_with0p7ttbarWeight_topPtRew_btagCorr_MuoCorr/rootFilesBoostedSelection/data0_boosted_selection.root", columns)
-
 
     print("Iniciando la conversión de RDataFrames a DataFrames para Data 0...")
     df_data0 = pd.DataFrame(rdf_data0.AsNumpy(columns=columns_data))
     print("Conversión completada para Data 0.")
 
     print("Guardando DataFrame de Data 0 en formato pickle...")
-    df_data0.to_pickle("/eos/project/r/rtu-topanalysis/cmunozdi/DataFramesPKL/2023preBPix/UsingLoosIsoAndTunepID_with0p7ttbarWeight_topPtRew_btagCorr_MuoCorr/data0_beforeBTag_pick.pkl")
-    print("Archivo guardado: data0_beforeBTag.pkl")
+    df_data0.to_pickle("/eos/project/r/rtu-topanalysis/cmunozdi/DataFramesPKL/2023preBPix/AllSelectionCuts_noTightKinHadSubJets/data0.pkl")
+    print("Archivo guardado: data0.pkl")
     print("Number of events: ", len(df_data0))
     del rdf_data0  # Liberar memoria
 else:
     print("Cargando DataFrame de Data 0 desde archivo pickle existente...")
-    df_data0 = pd.read_pickle("/eos/project/r/rtu-topanalysis/cmunozdi/DataFramesPKL/2023preBPix/UsingLoosIsoAndTunepID_with0p7ttbarWeight_topPtRew_btagCorr_MuoCorr/data0_beforeBTag_pick.pkl")
+    df_data0 = pd.read_pickle("/eos/project/r/rtu-topanalysis/cmunozdi/DataFramesPKL/2023preBPix/AllSelectionCuts_noTightKinHadSubJets/data0.pkl")
     print("Carga completada para Data 0.")
 
 # DATA: MUON 1
 if is_data1:
     print("Creating RDataFrames for Data 1 samples...")
-    input_dirs_data1 = "/eos/project/r/rtu-topanalysis/cmunozdi/AnalysisSamples_JetTightIDNoLepVeto/Data/2023preBPix/Muon1/Run*" #"/eos/project/r/rtu-topanalysis/cmunozdi/AnalysisSamples/Data/2023preBPix/Muon1/**" #"/eos/project/r/rtu-topanalysis/cmunozdi/AnalysisSamples_JetTightID/Data/2023preBPix/Muon1/**" #
+    input_dirs_data1 = "/eos/project/r/rtu-topanalysis/cmunozdi/AnalysisSamples_JetTightIDNoLepVeto_Full/Data/2023preBPix/Muon1/Run*"
     root_files_data1 = glob(os.path.join(input_dirs_data1, "**/**/*.root"))#"250818*/**/*.root")) #"**/**/*.root"))
     rdf_data1 = ROOT.RDataFrame("Events", root_files_data1)
 
     print("Applying event selection to Data 1...")
     rdf_data1 = apply_event_selection([rdf_data1], isMC=False)[0]
-    if save_roots_boosted_selection:
-        columns = list(rdf_data0.GetColumnNames())
-        rdf_data1.Snapshot("Events", "/eos/project/r/rtu-topanalysis/cmunozdi/DataFramesPKL/2023preBPix/UsingLoosIsoAndTunepID_with0p7ttbarWeight_topPtRew_btagCorr_MuoCorr/rootFilesBoostedSelection/data1_boosted_selection.root", columns)
 
     print("Iniciando la conversión de RDataFrames a DataFrames para Data 1...")
     df_data1 = pd.DataFrame(rdf_data1.AsNumpy(columns=columns_data))
     print("Conversión completada para Data.")
 
     print("Guardando DataFrame de Data 1 en formato pickle...")
-    df_data1.to_pickle("/eos/project/r/rtu-topanalysis/cmunozdi/DataFramesPKL/2023preBPix/UsingLoosIsoAndTunepID_with0p7ttbarWeight_topPtRew_btagCorr_MuoCorr/data1_beforeBTag_nopick.pkl")
-    print("Archivo guardado: data1_beforeBTag.pkl")
+    df_data1.to_pickle("/eos/project/r/rtu-topanalysis/cmunozdi/DataFramesPKL/2023preBPix/AllSelectionCuts_noTightKinHadSubJets/data1.pkl")
+    print("Archivo guardado: data1.pkl")
     print("Number of events: ", len(df_data1))
     del rdf_data1  # Liberar memoria
 else:
     print("Cargando DataFrame de Data 1 desde archivo pickle existente...")
-    df_data1 = pd.read_pickle("/eos/project/r/rtu-topanalysis/cmunozdi/DataFramesPKL/2023preBPix/UsingLoosIsoAndTunepID_with0p7ttbarWeight_topPtRew_btagCorr_MuoCorr/data1_beforeBTag_nopick.pkl")
+    df_data1 = pd.read_pickle("/eos/project/r/rtu-topanalysis/cmunozdi/DataFramesPKL/2023preBPix/AllSelectionCuts_noTightKinHadSubJets/data1.pkl")
     print("Carga completada para Data 1.")
 
 df_data = pd.concat([df_data0, df_data1], ignore_index=True)
@@ -694,9 +691,6 @@ if is_singletop:
 
     print("Applying event selection to Single Top samples...")
     rdfs_singletop = apply_event_selection(rdfs_singletop)
-    if save_roots_boosted_selection:
-        columns = list(rdf_data0.GetColumnNames())
-        rdfs_singletop.Snapshot("Events", "/eos/project/r/rtu-topanalysis/cmunozdi/DataFramesPKL/2023preBPix/UsingLoosIsoAndTunepID_with0p7ttbarWeight_topPtRew_btagCorr_MuoCorr/rootFilesBoostedSelection/singletop_boosted_selection.root", columns)
 
     print("Iniciando la conversión de RDataFrames a DataFrames para SingleTop...")
     df_singletop = pd.concat([
@@ -705,13 +699,13 @@ if is_singletop:
     ], ignore_index=True)
     print("Conversión completada para SingleTop.")
     print("Guardando DataFrame de SingleTop en formato pickle...")
-    df_singletop.to_pickle("/eos/project/r/rtu-topanalysis/cmunozdi/DataFramesPKL/2023preBPix/UsingLoosIsoAndTunepID_with0p7ttbarWeight_topPtRew_btagCorr_MuoCorr/singletop_beforeBTag.pkl")
-    print("Archivo guardado: singletop_beforeBTag.pkl")
+    df_singletop.to_pickle("/eos/project/r/rtu-topanalysis/cmunozdi/DataFramesPKL/2023preBPix/AllSelectionCuts_noTightKinHadSubJets/singletop.pkl")
+    print("Archivo guardado: singletop.pkl")
     print("Number of events: ", len(df_singletop))
     del rdfs_singletop  # Liberar memoria
 else:
     print("Cargando DataFrame de Single Top desde archivo pickle existente...")
-    df_singletop = pd.read_pickle("/eos/project/r/rtu-topanalysis/cmunozdi/DataFramesPKL/2023preBPix/UsingLoosIsoAndTunepID_with0p7ttbarWeight_topPtRew_btagCorr_MuoCorr/singletop_beforeBTag.pkl")
+    df_singletop = pd.read_pickle("/eos/project/r/rtu-topanalysis/cmunozdi/DataFramesPKL/2023preBPix/AllSelectionCuts_noTightKinHadSubJets/singletop.pkl")
     print("Carga completada para Single Top.")
 
 # MC: W+JETS
@@ -724,9 +718,6 @@ if is_wjets:
 
     print("Applying event selection to W+jets samples...")
     rdfs_wjets = apply_event_selection(rdfs_wjets)
-    if save_roots_boosted_selection:
-        columns = list(rdf_data0.GetColumnNames())
-        rdfs_wjets.Snapshot("Events", "/eos/project/r/rtu-topanalysis/cmunozdi/DataFramesPKL/2023preBPix/UsingLoosIsoAndTunepID_with0p7ttbarWeight_topPtRew_btagCorr_MuoCorr/rootFilesBoostedSelection/wjets_boosted_selection.root", columns)
 
     print("Iniciando la conversión de RDataFrames a DataFrames para WJets...")
     df_wjets = pd.concat([
@@ -747,13 +738,13 @@ if is_wjets:
         )
     ]
     print("Guardando DataFrame de WJets en formato pickle...")
-    df_wjets.to_pickle("/eos/project/r/rtu-topanalysis/cmunozdi/DataFramesPKL/2023preBPix/UsingLoosIsoAndTunepID_with0p7ttbarWeight_topPtRew_btagCorr_MuoCorr/wjets_beforeBTagNewSamples.pkl")
-    print("Archivo guardado: wjets_beforeBTag.pkl")
+    df_wjets.to_pickle("/eos/project/r/rtu-topanalysis/cmunozdi/DataFramesPKL/2023preBPix/AllSelectionCuts_noTightKinHadSubJets/wjets.pkl")
+    print("Archivo guardado: wjets.pkl")
     print("Number of events: ", len(df_wjets))
     del rdfs_wjets  # Liberar memoria
 else:
     print("Cargando DataFrame de W+jets desde archivo pickle existente...")
-    df_wjets = pd.read_pickle("/eos/project/r/rtu-topanalysis/cmunozdi/DataFramesPKL/2023preBPix/UsingLoosIsoAndTunepID_with0p7ttbarWeight_topPtRew_btagCorr_MuoCorr/wjets_beforeBTagNewSamples.pkl")
+    df_wjets = pd.read_pickle("/eos/project/r/rtu-topanalysis/cmunozdi/DataFramesPKL/2023preBPix/AllSelectionCuts_noTightKinHadSubJets/wjets.pkl")
     print("Carga completada para W+jets.")
 
 # MC: TTBAR SEMILEPTONIC
@@ -766,9 +757,6 @@ if is_ttbar_semi:
 
     print("Applying event selection to ttbar semileptonic samples...")
     rdfs_ttbar= apply_event_selection(rdfs_ttbar)
-    if save_roots_boosted_selection:
-        columns = list(rdf_data0.GetColumnNames())
-        rdfs_ttbar.Snapshot("Events", "/eos/project/r/rtu-topanalysis/cmunozdi/DataFramesPKL/2023preBPix/UsingLoosIsoAndTunepID_with0p7ttbarWeight_topPtRew_btagCorr_MuoCorr/rootFilesBoostedSelection/ttbar_semi_boosted_selection.root", columns)
 
     print("Iniciando la conversión de RDataFrames a DataFrames para TTBar...")
     df_ttbar = pd.concat([
@@ -777,20 +765,20 @@ if is_ttbar_semi:
     ], ignore_index=True)
     print("Conversión completada para TTBar.")
     print("Guardando DataFrame de TTBar en formato pickle...")
-    df_ttbar.to_pickle("/eos/project/r/rtu-topanalysis/cmunozdi/DataFramesPKL/2023preBPix/UsingLoosIsoAndTunepID_with0p7ttbarWeight_topPtRew_btagCorr_MuoCorr/ttbar_semi_beforeBTagMoreStats.pkl")
-    print("Archivo guardado: ttbar_semi_beforeBTag.pkl")
+    df_ttbar.to_pickle("/eos/project/r/rtu-topanalysis/cmunozdi/DataFramesPKL/2023preBPix/AllSelectionCuts_noTightKinHadSubJets/ttbar_semi.pkl")
+    print("Archivo guardado: ttbar_semi.pkl")
     print("Number of events: ", len(df_ttbar))
     del rdfs_ttbar  # Liberar memoria
 else:
     print("Cargando DataFrame de TTBar semileptonic desde archivo pickle existente...")
-    df_ttbar = pd.read_pickle("/eos/project/r/rtu-topanalysis/cmunozdi/DataFramesPKL/2023preBPix/UsingLoosIsoAndTunepID_with0p7ttbarWeight_topPtRew_btagCorr_MuoCorr/ttbar_semi_beforeBTagMoreStats.pkl")
+    df_ttbar = pd.read_pickle("/eos/project/r/rtu-topanalysis/cmunozdi/DataFramesPKL/2023preBPix/AllSelectionCuts_noTightKinHadSubJets/ttbar_semi.pkl")
     print("Carga completada para TTBar semileptonic.")
 
     # # Suponiendo que el peso total se llama "weight" (ajusta si es distinto)
     # df_ttbar["eventWeight"] = df_ttbar["eventWeight"] / 0.73
     # print("Guardando ttbar signal sin extra weight")
     # # Guarda un nuevo pickle sin el factor
-    # df_ttbar.to_pickle("/eos/project/r/rtu-topanalysis/cmunozdi/DataFramesPKL/2023preBPix/UsingLoosIsoAndTunepID_with0p7ttbarWeight_topPtRew_btagCorr_MuoCorr/ttbar_semi_beforeBTagMoreStats.pkl")
+    # df_ttbar.to_pickle("/eos/project/r/rtu-topanalysis/cmunozdi/DataFramesPKL/2023preBPix/AllSelectionCuts_noTightKinHadSubJets/ttbar_semi_beforeBTagMoreStats.pkl")
 
 # MC: TTBAR BACKGROUND
 if is_ttbar_bck:
@@ -802,9 +790,6 @@ if is_ttbar_bck:
 
     print("Applying event selection to ttbar background samples...")
     rdfs_ttbar_bck= apply_event_selection(rdfs_ttbar_bck)
-    if save_roots_boosted_selection:
-        columns = list(rdf_data0.GetColumnNames())
-        rdfs_ttbar_bck.Snapshot("Events", "/eos/project/r/rtu-topanalysis/cmunozdi/DataFramesPKL/2023preBPix/UsingLoosIsoAndTunepID_with0p7ttbarWeight_topPtRew_btagCorr_MuoCorr/rootFilesBoostedSelection/ttbar_bck_boosted_selection.root", columns)
 
     print("Iniciando la conversión de RDataFrames a DataFrames para TTBar Background...")
     df_ttbar_bck = pd.concat([
@@ -813,19 +798,19 @@ if is_ttbar_bck:
     ], ignore_index=True)
     print("Conversión completada para TTBar Background.")
     print("Guardando DataFrame de TTBar Background en formato pickle...")
-    df_ttbar_bck.to_pickle("/eos/project/r/rtu-topanalysis/cmunozdi/DataFramesPKL/2023preBPix/UsingLoosIsoAndTunepID_with0p7ttbarWeight_topPtRew_btagCorr_MuoCorr/ttbar_bck_beforeBTag.pkl")
-    print("Archivo guardado: ttbar_bck_beforeBTag.pkl")
+    df_ttbar_bck.to_pickle("/eos/project/r/rtu-topanalysis/cmunozdi/DataFramesPKL/2023preBPix/AllSelectionCuts_noTightKinHadSubJets/ttbar_bck.pkl")
+    print("Archivo guardado: ttbar_bck.pkl")
     print("Number of events: ", len(df_ttbar_bck))
     del rdfs_ttbar_bck  # Liberar memoria
 else:
     print("Cargando DataFrame de TTBar Background desde archivo pickle existente...")
-    df_ttbar_bck = pd.read_pickle("/eos/project/r/rtu-topanalysis/cmunozdi/DataFramesPKL/2023preBPix/UsingLoosIsoAndTunepID_with0p7ttbarWeight_topPtRew_btagCorr_MuoCorr/ttbar_bck_beforeBTag.pkl")
+    df_ttbar_bck = pd.read_pickle("/eos/project/r/rtu-topanalysis/cmunozdi/DataFramesPKL/2023preBPix/AllSelectionCuts_noTightKinHadSubJets/ttbar_bck.pkl")
     print("Carga completada para TTBar Background.")
 
     # df_ttbar_bck["eventWeight"] = df_ttbar_bck["eventWeight"] / 0.73
     # print("Guardando ttbar bck sin extra weight")
     # #Guarda un nuevo pickle sin el factor
-    # df_ttbar_bck.to_pickle("/eos/project/r/rtu-topanalysis/cmunozdi/DataFramesPKL/2023preBPix/UsingLoosIsoAndTunepID_with0p7ttbarWeight_topPtRew_btagCorr_MuoCorr/ttbar_bck_beforeBTag.pkl")
+    # df_ttbar_bck.to_pickle("/eos/project/r/rtu-topanalysis/cmunozdi/DataFramesPKL/2023preBPix/AllSelectionCuts_noTightKinHadSubJets/ttbar_bck_beforeBTag.pkl")
 
 # MC: QCD MUON
 if is_qcdmu:
@@ -837,9 +822,6 @@ if is_qcdmu:
 
     print("Applying event selection to QCD muon samples...")
     rdfs_qcdmu = apply_event_selection(rdfs_qcdmu)
-    if save_roots_boosted_selection:
-        columns = list(rdf_data0.GetColumnNames())
-        rdfs_qcdmu.Snapshot("Events", "/eos/project/r/rtu-topanalysis/cmunozdi/DataFramesPKL/2023preBPix/UsingLoosIsoAndTunepID_with0p7ttbarWeight_topPtRew_btagCorr_MuoCorr/rootFilesBoostedSelection/qcdmu_boosted_selection.root", columns)
 
     print("Iniciando la conversión de RDataFrames a DataFrames para QCDMu...")
     df_qcdmu = pd.concat([
@@ -848,13 +830,13 @@ if is_qcdmu:
     ], ignore_index=True)
     print("Conversión completada para QCDMu.")
     print("Guardando DataFrame de QCDMu en formato pickle...")
-    df_qcdmu.to_pickle("/eos/project/r/rtu-topanalysis/cmunozdi/DataFramesPKL/2023preBPix/UsingLoosIsoAndTunepID_with0p7ttbarWeight_topPtRew_btagCorr_MuoCorr/qcdmu_beforeBTag.pkl")
-    print("Archivo guardado: qcdmu_beforeBTag.pkl")
+    df_qcdmu.to_pickle("/eos/project/r/rtu-topanalysis/cmunozdi/DataFramesPKL/2023preBPix/AllSelectionCuts_noTightKinHadSubJets/qcdmu.pkl")
+    print("Archivo guardado: qcdmu.pkl")
     print("Number of events: ", len(df_qcdmu))
     del rdfs_qcdmu  # Liberar memoria
 else:
     print("Cargando DataFrame de QCDMu desde archivo pickle existente...")
-    df_qcdmu = pd.read_pickle("/eos/project/r/rtu-topanalysis/cmunozdi/DataFramesPKL/2023preBPix/UsingLoosIsoAndTunepID_with0p7ttbarWeight_topPtRew_btagCorr_MuoCorr/qcdmu_beforeBTag.pkl")
+    df_qcdmu = pd.read_pickle("/eos/project/r/rtu-topanalysis/cmunozdi/DataFramesPKL/2023preBPix/AllSelectionCuts_noTightKinHadSubJets/qcdmu.pkl")
     print("Carga completada para QCDMu.")
 
 # MC: DY
@@ -867,9 +849,6 @@ if is_dy:
 
     print("Applying event selection to DY samples...")
     rdfs_dy = apply_event_selection(rdfs_dy)
-    if save_roots_boosted_selection:
-        columns = list(rdf_data0.GetColumnNames())
-        rdfs_dy.Snapshot("Events", "/eos/project/r/rtu-topanalysis/cmunozdi/DataFramesPKL/2023preBPix/UsingLoosIsoAndTunepID_with0p7ttbarWeight_topPtRew_btagCorr_MuoCorr/rootFilesBoostedSelection/dy_boosted_selection.root", columns)
 
     print("Iniciando la conversión de RDataFrames a DataFrames para DY...")
     df_dy = pd.concat([
@@ -878,13 +857,13 @@ if is_dy:
     ], ignore_index=True)
     print("Conversión completada para DY.")
     print("Guardando DataFrame de DY en formato pickle...")
-    df_dy.to_pickle("/eos/project/r/rtu-topanalysis/cmunozdi/DataFramesPKL/2023preBPix/UsingLoosIsoAndTunepID_with0p7ttbarWeight_topPtRew_btagCorr_MuoCorr/dy_beforeBTag.pkl")
-    print("Archivo guardado: dy_beforeBTag.pkl")
+    df_dy.to_pickle("/eos/project/r/rtu-topanalysis/cmunozdi/DataFramesPKL/2023preBPix/AllSelectionCuts_noTightKinHadSubJets/dy.pkl")
+    print("Archivo guardado: dy.pkl")
     print("Number of events dy: ", len(df_dy))
     del rdfs_dy  # Liberar memoria
 else:
     print("Cargando DataFrame de DY desde archivo pickle existente...")
-    df_dy = pd.read_pickle("/eos/project/r/rtu-topanalysis/cmunozdi/DataFramesPKL/2023preBPix/UsingLoosIsoAndTunepID_with0p7ttbarWeight_topPtRew_btagCorr_MuoCorr/dy_beforeBTag.pkl")
+    df_dy = pd.read_pickle("/eos/project/r/rtu-topanalysis/cmunozdi/DataFramesPKL/2023preBPix/AllSelectionCuts_noTightKinHadSubJets/dy.pkl")
     print("Carga completada para DY.")
 
 # MC: VV
@@ -897,9 +876,6 @@ if is_vv:
 
     print("Applying event selection to VV samples...")
     rdfs_vv = apply_event_selection(rdfs_vv)
-    if save_roots_boosted_selection:
-        columns = list(rdf_data0.GetColumnNames())
-        rdfs_vv.Snapshot("Events", "/eos/project/r/rtu-topanalysis/cmunozdi/DataFramesPKL/2023preBPix/UsingLoosIsoAndTunepID_with0p7ttbarWeight_topPtRew_btagCorr_MuoCorr/rootFilesBoostedSelection/vv_boosted_selection.root", columns)
 
     print("Iniciando la conversión de RDataFrames a DataFrames para VV...")
     df_vv = pd.concat([
@@ -908,13 +884,13 @@ if is_vv:
     ], ignore_index=True)
     print("Conversión completada para VV.")
     print("Guardando DataFrame de VV en formato pickle...")
-    df_vv.to_pickle("/eos/project/r/rtu-topanalysis/cmunozdi/DataFramesPKL/2023preBPix/UsingLoosIsoAndTunepID_with0p7ttbarWeight_topPtRew_btagCorr_MuoCorr/vv_beforeBTag.pkl")
-    print("Archivo guardado: vv_beforeBTag.pkl")
+    df_vv.to_pickle("/eos/project/r/rtu-topanalysis/cmunozdi/DataFramesPKL/2023preBPix/AllSelectionCuts_noTightKinHadSubJets/vv.pkl")
+    print("Archivo guardado: vv.pkl")
     print("Number of events vv: ", len(df_vv))
     del rdfs_vv  # Liberar memoria
 else:
     print("Cargando DataFrame de VV desde archivo pickle existente...")
-    df_vv = pd.read_pickle("/eos/project/r/rtu-topanalysis/cmunozdi/DataFramesPKL/2023preBPix/UsingLoosIsoAndTunepID_with0p7ttbarWeight_topPtRew_btagCorr_MuoCorr/vv_beforeBTag.pkl")
+    df_vv = pd.read_pickle("/eos/project/r/rtu-topanalysis/cmunozdi/DataFramesPKL/2023preBPix/AllSelectionCuts_noTightKinHadSubJets/vv.pkl")
     print("Carga completada para VV.")
 
 
@@ -1008,7 +984,7 @@ def plot_variable(
     ylabel="Events",
     title=None,
     print_percentages=False,
-    output_dir="/eos/project/r/rtu-topanalysis/cmunozdi/DataFramesPKL/2023preBPix/UsingLoosIsoAndTunepID_with0p7ttbarWeight_topPtRew_btagCorr_MuoCorr/plots",
+    output_dir="/eos/project/r/rtu-topanalysis/cmunozdi/DataFramesPKL/2023preBPix/AllSelectionCuts_noTightKinHadSubJets/plots",
     nth_element=None  # Nuevo argumento
 ):
     if title is None:
@@ -1420,7 +1396,7 @@ plot_variable( branch="lepton_trg_pt", dfs_mc=[df_ttbar_muon, df_ttbar_bck_muon,
 plot_variable( branch="lepton_tuneP_pt", dfs_mc=[df_ttbar_muon, df_ttbar_bck_muon, df_singletop_muon, df_wjets_muon, df_qcdmu_muon, df_dy_muon, df_vv_muon][::-1], df_data=df_data_muon,
               labels_mc=[r'$t\overline{t}\rightarrow l\nu2q$', r"$t\overline{t}\rightarrow others$",  "SingleTop", "W+jets", "QCD", "DY", "VV"][::-1], colors_mc=["red", "tomato", "gold", "lime", "deepskyblue", "blue", "indigo"][::-1],
               bins=70, logy=False, xlim=(0, 400), #ylim=(0.75, 1e3),
-              xlabel=r'$p_T$ muon [GeV]', title='tight_lepton_trg_pt'
+              xlabel=r'$p_T$ muon TuneP [GeV]', title='tight_lepton_trg_pt'
              )
 
 #Lepton eta
