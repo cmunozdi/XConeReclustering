@@ -6,15 +6,15 @@ import os
 from glob import glob
 
 #Bool variables to know over which sample should we run the code
-is_ttbar_semi = False
-is_ttbar_bck = False
-is_singletop = False
-is_wjets = False
-is_qcdmu = False
-is_dy = False
-is_vv = False
-is_data0 = False
-is_data1 = False
+is_ttbar_semi = True
+is_ttbar_bck = True
+is_singletop = True
+is_wjets = True
+is_qcdmu = True
+is_dy = True
+is_vv = True
+is_data0 = True
+is_data1 = True
 
 save_roots_boosted_selection = False
 
@@ -602,7 +602,24 @@ def apply_event_selection(rdfs, isMC=True, TWPbtag2023=0.6553):
     return filtered_rdfs
 
 
-columns_mc = ["eventWeight", "lepton_trg_pt", "lepton_tuneP_pt", "lepton_trg_eta", "pass_trigger", "PUReweighting", "pass_MET_filters_2023", "Num_lep_above_15", "num_muon_selected", "is_muon_trg", "PuppiMET_pt", "n_bjets", "TopPtWeight_NNLOpNLOEW", "muoWeight", "btagWeight", "topjets.pt", "num_subjets_in_topjet_pt30_eta2p5", "topjets.n_subjets", "Jet_pt", "Jet_eta", "Jet_hadronFlavour", "Jet_btagDeepFlavB", "Pileup_nTrueInt"]
+columns_mc = ["eventWeight", "btagWeight", "muoWeight", "PUReweighting", #"event", "run", "luminosityBlock", "lepton.pt", "lepton.eta", "lepton.phi", "lepton.pdgId", "lepton.n_lep", "lepton.dR_to_jet", "lepton.pt_rel_to_jet", "lepton.closest_jet_idx", #Uncomment this when lepton already has dR and ptrel
+#               "muon.pt", "muon.eta", "muon.phi", "muon.pdgId", "electron.pt", "electron.eta", "electron.phi", "electron.pdgId",
+            #   "Muon_pt", "Muon_eta", "Muon_phi", "Muon_pdgId", "Electron_pt", "Electron_eta", "Electron_phi", "Electron_pdgId", "Num_lep_above_15", "Muon_jetIdx",
+              "lepton_trg_pt", "lepton_tuneP_pt", "lepton_trg_eta", "lepton_trg_phi", "lepton_trg_pdgId", "lepton_trg_n_lep", "lepton_trg_dR", "lepton_trg_ptrel",
+            #   "PuppiMET_pt", "Jet_pt", "HLT_Mu50", "HLT_Ele30_WPTight_Gsf", "HLT_Ele115_CaloIdVT_GsfTrkIdT", "HLT_Photon175",
+#               "electron_trg.pt", "muon.pt",
+              "Jet_pt", "Jet_eta", "Jet_btagDeepFlavB", "Jet_hadronFlavour", "Jet_passJetIdTightLepVeto", "Jet_passJetIdTight",
+              "Jet_phi", "Jet_rawFactor", "Jet_area","Rho_fixedGridRhoFastjetAll", #"Jet_passJetIdTightLepVeto",#
+              "bjet_pt", "bjet_eta", "bjet_btag", "n_bjets", #"pt_miss",
+              "PuppiMET_pt",
+              "fatjets.n_jets", "fatjets.pt", "fatjets.eta",
+              "fatjets.phi", "fatjets.mass",
+              "subjets.n_jets", "subjets.pt", "subjets.eta", "subjets.phi", "subjets.mass", "subjets.findLepton",
+              "topjets.n_subjets", "topjets.pt", "topjets.eta", "topjets.phi", "topjets.mass",
+              "topjets.subjets_in_topjet", "topjets.pt_W", "topjets.eta_W", "topjets.phi_W",
+              "topjets.mass_W", "topjets.subjets_in_W", "fastjet_CandsList", "subjet_CandsList", "fatjets.findLepton",
+              "TopPtWeight_NNLOpNLOEW", "Pileup_nTrueInt",
+              "pass_detector_selection", ]#"PFCands_pt", "PFCands_eta", "PFCands_phi", "PFCands_pdgId"]
 
 columns_data = [col for col in columns_mc if col not in ["eventWeight", "btagWeight", "muoWeight", "PUReweighting", "Jet_hadronFlavour", "TopPtWeight_NNLOpNLOEW", "Pileup_nTrueInt"]]
 # columns_data = columns_data + ["Jet_passJetIdTightLepVeto"]
@@ -610,7 +627,7 @@ columns_data = [col for col in columns_mc if col not in ["eventWeight", "btagWei
 # DATA: MUON 0
 if is_data0:
     print("Creating RDataFrames for Data 0 samples...")
-    input_dirs_data0 = "/eos/project/r/rtu-topanalysis/cmunozdi/AnalysisSamples_JetTightIDNoLepVeto/Data/2023preBPix/Muon0/Run*" #"/eos/project/r/rtu-topanalysis/cmunozdi/AnalysisSamples/Data/2023preBPix/Muon0/**"  #"/eos/project/r/rtu-topanalysis/cmunozdi/AnalysisSamples_JetTightID/Data/2023preBPix/Muon0/**" #
+    input_dirs_data0 = "/eos/project/r/rtu-topanalysis/cmunozdi/AnalysisSamples_JetTightIDNoLepVeto_Full/Data/2023preBPix/Muon0/Run*" #"/eos/project/r/rtu-topanalysis/cmunozdi/AnalysisSamples/Data/2023preBPix/Muon0/**"  #"/eos/project/r/rtu-topanalysis/cmunozdi/AnalysisSamples_JetTightID/Data/2023preBPix/Muon0/**" #
     root_files_data0 = glob(os.path.join(input_dirs_data0, "**/**/*.root"))#"250818*/**/*.root")) #"**/**/*.root"))
     rdf_data0 = ROOT.RDataFrame("Events", root_files_data0)
 
@@ -645,7 +662,7 @@ else:
 # DATA: MUON 1
 if is_data1:
     print("Creating RDataFrames for Data 1 samples...")
-    input_dirs_data1 = "/eos/project/r/rtu-topanalysis/cmunozdi/AnalysisSamples_JetTightIDNoLepVeto/Data/2023preBPix/Muon1/Run*" #"/eos/project/r/rtu-topanalysis/cmunozdi/AnalysisSamples/Data/2023preBPix/Muon1/**" #"/eos/project/r/rtu-topanalysis/cmunozdi/AnalysisSamples_JetTightID/Data/2023preBPix/Muon1/**" #
+    input_dirs_data1 = "/eos/project/r/rtu-topanalysis/cmunozdi/AnalysisSamples_JetTightIDNoLepVeto_Full/Data/2023preBPix/Muon1/Run*" #"/eos/project/r/rtu-topanalysis/cmunozdi/AnalysisSamples/Data/2023preBPix/Muon1/**" #"/eos/project/r/rtu-topanalysis/cmunozdi/AnalysisSamples_JetTightID/Data/2023preBPix/Muon1/**" #
     root_files_data1 = glob(os.path.join(input_dirs_data1, "**/**/*.root"))#"250818*/**/*.root")) #"**/**/*.root"))
     rdf_data1 = ROOT.RDataFrame("Events", root_files_data1)
 
@@ -1584,49 +1601,49 @@ df_vv_muon = filter_by_cut(df_vv, cut_id)
 plot_variable( branch="lepton_trg_n_lep", dfs_mc=[df_ttbar_muon, df_ttbar_bck_muon, df_singletop_muon, df_wjets_muon, df_qcdmu_muon, df_dy_muon, df_vv_muon][::-1], df_data=df_data_muon,
               labels_mc=[r'$t\overline{t}\rightarrow l\nu2q$', r"$t\overline{t}\rightarrow others$",  "SingleTop", "W+jets", "QCD", "DY", "VV"][::-1], colors_mc=["red", "tomato", "gold", "lime", "deepskyblue", "blue", "indigo"][::-1],
               bins=np.arange(-0.5, 3.5, 1), print_percentages=True, #ylim=(0, 3.5*1e3), #logy=True,)
-              xlabel='Number of muons', title='tight_lepton_trg_n_lep'
+              xlabel='Number of muons', title='lepton_trg_n_lep'
              )
 
 #Lepton pdgId
 plot_variable(branch="lepton_trg_pdgId", dfs_mc=[df_ttbar_muon, df_ttbar_bck_muon, df_singletop_muon, df_wjets_muon, df_qcdmu_muon, df_dy_muon, df_vv_muon][::-1], df_data=df_data_muon,
               labels_mc=[r'$t\overline{t}\rightarrow l\nu2q$', r"$t\overline{t}\rightarrow others$",  "SingleTop", "W+jets", "QCD", "DY", "VV"][::-1], colors_mc=["red", "tomato", "gold", "lime", "deepskyblue", "blue", "indigo"][::-1],
               bins=np.arange(-14.5, 14.5, 1),logy=False, #ylim=(0, 1.85*1e3), #logy=True,)
-              xlabel='Lepton pdgID', title='tight_lepton_trg_pdgId'
+              xlabel='Lepton pdgID', title='lepton_trg_pdgId'
              )
 
 #Lepton pt
 plot_variable( branch="lepton_trg_pt", dfs_mc=[df_ttbar_muon, df_ttbar_bck_muon, df_singletop_muon, df_wjets_muon, df_qcdmu_muon, df_dy_muon, df_vv_muon][::-1], df_data=df_data_muon,
               labels_mc=[r'$t\overline{t}\rightarrow l\nu2q$', r"$t\overline{t}\rightarrow others$",  "SingleTop", "W+jets", "QCD", "DY", "VV"][::-1], colors_mc=["red", "tomato", "gold", "lime", "deepskyblue", "blue", "indigo"][::-1],
               bins=70, logy=False, xlim=(0, 400), #ylim=(0.75, 1e3),
-              xlabel=r'$p_T$ muon [GeV]', title='tight_lepton_trg_pt'
+              xlabel=r'$p_T$ muon [GeV]', title='lepton_trg_pt'
              )
 
 #Lepton TuneP pt              
 plot_variable( branch="lepton_tuneP_pt", dfs_mc=[df_ttbar_muon, df_ttbar_bck_muon, df_singletop_muon, df_wjets_muon, df_qcdmu_muon, df_dy_muon, df_vv_muon][::-1], df_data=df_data_muon,
               labels_mc=[r'$t\overline{t}\rightarrow l\nu2q$', r"$t\overline{t}\rightarrow others$",  "SingleTop", "W+jets", "QCD", "DY", "VV"][::-1], colors_mc=["red", "tomato", "gold", "lime", "deepskyblue", "blue", "indigo"][::-1],
               bins=70, logy=False, xlim=(0, 400), #ylim=(0.75, 1e3),
-              xlabel=r'$p_T$ muon TuneP [GeV]', title='tight_lepton_trg_pt'
+              xlabel=r'$p_T$ muon TuneP [GeV]', title='lepton_tuneP_pt'
              )
 
 #Lepton eta
 plot_variable(branch="lepton_trg_eta", dfs_mc=[df_ttbar_muon, df_ttbar_bck_muon, df_singletop_muon, df_wjets_muon, df_qcdmu_muon, df_dy_muon, df_vv_muon][::-1], df_data=df_data_muon,
               labels_mc=[r'$t\overline{t}\rightarrow l\nu2q$', r"$t\overline{t}\rightarrow others$",  "SingleTop", "W+jets", "QCD", "DY", "VV"][::-1], colors_mc=["red", "tomato", "gold", "lime", "deepskyblue", "blue", "indigo"][::-1],
               bins=15, xlim=(-3, 3), #ylim=(0, 0.54*1e3), #logy=True,
-              xlabel=r'$\eta$ muon', title='tight_lepton_trg_eta'
+              xlabel=r'$\eta$ muon', title='lepton_trg_eta'
              )
 
 #Lepton dR to jet
 plot_variable(branch="lepton_trg_dR", dfs_mc=[df_ttbar_muon, df_ttbar_bck_muon, df_singletop_muon, df_wjets_muon, df_qcdmu_muon, df_dy_muon, df_vv_muon][::-1], df_data=df_data_muon,
               labels_mc=[r'$t\overline{t}\rightarrow l\nu2q$', r"$t\overline{t}\rightarrow others$",  "SingleTop", "W+jets", "QCD", "DY", "VV"][::-1], colors_mc=["red", "tomato", "gold", "lime", "deepskyblue", "blue", "indigo"][::-1],
               bins=20, xlabel=r"$\Delta R$ (muon, closest AK4 jet)", xlim=(0, 4), logy=False, #ylim=(0, 0.8*1e3),
-              title='tight_lepton_trg_dR'
+              title='lepton_trg_dR'
              )
 
 #Lepton ptrel to jet
 plot_variable(branch="lepton_trg_ptrel", dfs_mc=[df_ttbar_muon, df_ttbar_bck_muon, df_singletop_muon, df_wjets_muon, df_qcdmu_muon, df_dy_muon, df_vv_muon][::-1], df_data=df_data_muon,
               labels_mc=[r'$t\overline{t}\rightarrow l\nu2q$', r"$t\overline{t}\rightarrow others$",  "SingleTop", "W+jets", "QCD", "DY", "VV"][::-1], colors_mc=["red", "tomato", "gold", "lime", "deepskyblue", "blue", "indigo"][::-1],
               bins=20, xlabel=r"$p_T^{rel}$ (muon, closest AK4 jet) [GeV]", xlim=(0, 200), logy = False, #ylim=(0, 0.35*1e3),
-              title='tight_lepton_trg_ptrel'
+              title='lepton_trg_ptrel'
              )
 
 #XCONE JETS
@@ -1634,14 +1651,14 @@ plot_variable(branch="lepton_trg_ptrel", dfs_mc=[df_ttbar_muon, df_ttbar_bck_muo
 plot_variable(branch="topjets.mass", dfs_mc=[df_ttbar_muon, df_ttbar_bck_muon, df_singletop_muon, df_wjets_muon, df_qcdmu_muon, df_dy_muon, df_vv_muon][::-1], df_data=df_data_muon,
              labels_mc=[r'$t\overline{t}\rightarrow l\nu2q$', r"$t\overline{t}\rightarrow others$",  "SingleTop", "W+jets", "QCD", "DY", "VV"][::-1], colors_mc=["red", "tomato", "gold", "lime", "deepskyblue", "blue", "indigo"][::-1],
              bins=20, xlim=(80, 320), logy=False, #ylim=(0, 0.64*1e3),
-             title='tight_topjets_mass', xlabel=r'$m_{top-jet}$ [GeV]'
+             title='topjets_mass', xlabel=r'$m_{top-jet}$ [GeV]'
              )
 
 #Mass W hadronic decay
 plot_variable(branch="topjets.mass_W", dfs_mc=[df_ttbar_muon, df_ttbar_bck_muon, df_singletop_muon, df_wjets_muon, df_qcdmu_muon, df_dy_muon, df_vv_muon][::-1], df_data=df_data_muon,
              labels_mc=[r'$t\overline{t}\rightarrow l\nu2q$', r"$t\overline{t}\rightarrow others$",  "SingleTop", "W+jets", "QCD", "DY", "VV"][::-1], colors_mc=["red", "tomato", "gold", "lime", "deepskyblue", "blue", "indigo"][::-1],
              bins=20, xlim=(40, 120), logy=False, #ylim=(0, 0.6*1e3),
-             title='tight_topjets_Wmass', xlabel=r'$m_{W-jet}$ [GeV]'
+             title='topjets_Wmass', xlabel=r'$m_{W-jet}$ [GeV]'
              )
 
 #MET
@@ -1649,7 +1666,7 @@ plot_variable(branch="topjets.mass_W", dfs_mc=[df_ttbar_muon, df_ttbar_bck_muon,
 plot_variable(branch="PuppiMET_pt", dfs_mc=[df_ttbar_muon, df_ttbar_bck_muon, df_singletop_muon, df_wjets_muon, df_qcdmu_muon, df_dy_muon, df_vv_muon][::-1], df_data=df_data_muon,
               labels_mc=[r'$t\overline{t}\rightarrow l\nu2q$', r"$t\overline{t}\rightarrow others$",  "SingleTop", "W+jets", "QCD", "DY", "VV"][::-1], colors_mc=["red", "tomato", "gold", "lime", "deepskyblue", "blue", "indigo"][::-1],
               bins=25, xlim=(0, 600), logy=False, #ylim=(0.75, 1e3),
-              xlabel=r'$p_T^{MET}$ [GeV]', title='tight_PuppiMET_pt'
+              xlabel=r'$p_T^{MET}$ [GeV]', title='PuppiMET_pt'
               )
 
 #BJETS
@@ -1657,28 +1674,28 @@ plot_variable(branch="PuppiMET_pt", dfs_mc=[df_ttbar_muon, df_ttbar_bck_muon, df
 plot_variable( branch="n_bjets", dfs_mc=[df_ttbar_muon, df_ttbar_bck_muon, df_singletop_muon, df_wjets_muon, df_qcdmu_muon, df_dy_muon, df_vv_muon][::-1], df_data=df_data_muon,
               labels_mc=[r'$t\overline{t}\rightarrow l\nu2q$', r"$t\overline{t}\rightarrow others$",  "SingleTop", "W+jets", "QCD", "DY", "VV"][::-1], colors_mc=["red", "tomato", "gold", "lime", "deepskyblue", "blue", "indigo"][::-1],
               bins=np.arange(-0.5, 6.5, 1), logy=False, #ylim=(0.7, 2.5*1e3), #logy=True,)
-              xlabel='Number of b-jets', title='tight_n_bjets'
+              xlabel='Number of b-jets', title='n_bjets'
              )
 
 # #bjets btag discriminator
 plot_variable(branch="bjet_btag", dfs_mc=[df_ttbar_muon, df_ttbar_bck_muon, df_singletop_muon, df_wjets_muon, df_qcdmu_muon, df_dy_muon, df_vv_muon][::-1], df_data=df_data_muon,
               labels_mc=[r'$t\overline{t}\rightarrow l\nu2q$', r"$t\overline{t}\rightarrow others$",  "SingleTop", "W+jets", "QCD", "DY", "VV"][::-1], colors_mc=["red", "tomato", "gold", "lime", "deepskyblue", "blue", "indigo"][::-1], nth_element=-1,
               bins=20, xlim=(0., 1.),logy=False, #ylim=(0.95, 4*1e3), #logy=True,)
-              xlabel='DeepBTag b-jets', title='tight_bjet_btag'
+              xlabel='DeepBTag b-jets', title='bjet_btag'
              )
 
 #bjets pt
 plot_variable( branch="bjet_pt", dfs_mc=[df_ttbar_muon, df_ttbar_bck_muon, df_singletop_muon, df_wjets_muon, df_qcdmu_muon, df_dy_muon, df_vv_muon][::-1], df_data=df_data_muon,
               labels_mc=[r'$t\overline{t}\rightarrow l\nu2q$', r"$t\overline{t}\rightarrow others$",  "SingleTop", "W+jets", "QCD", "DY", "VV"][::-1], colors_mc=["red", "tomato", "gold", "lime", "deepskyblue", "blue", "indigo"][::-1], nth_element=-1,
               bins=20, logy=False, xlim=(0, 600), #ylim=(0.75, 4*1e3),
-              xlabel=r'$p_T$ b-jets [GeV]', title='tight_bjet_pt'
+              xlabel=r'$p_T$ b-jets [GeV]', title='bjet_pt'
              )
 
 #bjets eta
 plot_variable(branch="bjet_eta", dfs_mc=[df_ttbar_muon, df_ttbar_bck_muon, df_singletop_muon, df_wjets_muon, df_qcdmu_muon, df_dy_muon, df_vv_muon][::-1], df_data=df_data_muon,
               labels_mc=[r'$t\overline{t}\rightarrow l\nu2q$', r"$t\overline{t}\rightarrow others$",  "SingleTop", "W+jets", "QCD", "DY", "VV"][::-1], colors_mc=["red", "tomato", "gold", "lime", "deepskyblue", "blue", "indigo"][::-1], nth_element=-1,
               bins=15, xlim=(-3, 3), #ylim=(0, 0.9*1e3), #logy=True,
-              xlabel=r'$\eta$ b-jets', title='tight_bjet_eta'
+              xlabel=r'$\eta$ b-jets', title='bjet_eta'
              )
 
 #LEADDING BJET
@@ -1686,21 +1703,21 @@ plot_variable(branch="bjet_eta", dfs_mc=[df_ttbar_muon, df_ttbar_bck_muon, df_si
 plot_variable(branch="bjet_btag", dfs_mc=[df_ttbar_muon, df_ttbar_bck_muon, df_singletop_muon, df_wjets_muon, df_qcdmu_muon, df_dy_muon, df_vv_muon][::-1], df_data=df_data_muon,
               labels_mc=[r'$t\overline{t}\rightarrow l\nu2q$', r"$t\overline{t}\rightarrow others$",  "SingleTop", "W+jets", "QCD", "DY", "VV"][::-1], colors_mc=["red", "tomato", "gold", "lime", "deepskyblue", "blue", "indigo"][::-1], nth_element=0,
               bins=20, xlim=(0., 1.),logy=False, #ylim=(0.95, 4.85*1e3), #logy=True,)
-              xlabel='DeepBTag leading b-jet', title='tight_bjet_btag_leading'
+              xlabel='DeepBTag leading b-jet', title='bjet_btag_leading'
              )
 
 #Leading bjet pt
 plot_variable( branch="bjet_pt", dfs_mc=[df_ttbar_muon, df_ttbar_bck_muon, df_singletop_muon, df_wjets_muon, df_qcdmu_muon, df_dy_muon, df_vv_muon][::-1], df_data=df_data_muon,
               labels_mc=[r'$t\overline{t}\rightarrow l\nu2q$', r"$t\overline{t}\rightarrow others$",  "SingleTop", "W+jets", "QCD", "DY", "VV"][::-1], colors_mc=["red", "tomato", "gold", "lime", "deepskyblue", "blue", "indigo"][::-1], nth_element=0,
               bins=20, logy=False, xlim=(0, 600), #ylim=(0.75, 4*1e3),
-              xlabel=r'$p_T$ leading b-jet [GeV]', title='tight_bjet_pt_leading'
+              xlabel=r'$p_T$ leading b-jet [GeV]', title='bjet_pt_leading'
              )
 
 #Leading bjet eta
 plot_variable(branch="bjet_eta", dfs_mc=[df_ttbar_muon, df_ttbar_bck_muon, df_singletop_muon, df_wjets_muon, df_qcdmu_muon, df_dy_muon, df_vv_muon][::-1], df_data=df_data_muon,
               labels_mc=[r'$t\overline{t}\rightarrow l\nu2q$', r"$t\overline{t}\rightarrow others$",  "SingleTop", "W+jets", "QCD", "DY", "VV"][::-1], colors_mc=["red", "tomato", "gold", "lime", "deepskyblue", "blue", "indigo"][::-1], nth_element=0,
               bins=15, xlim=(-3, 3), #ylim=(0, 6.6*1e2), #logy=True,
-              xlabel=r'$\eta$ leading b-jet', title='tight_bjet_eta_leading'
+              xlabel=r'$\eta$ leading b-jet', title='bjet_eta_leading'
              )
 
 #SUBLEADING BJET
@@ -1708,21 +1725,21 @@ plot_variable(branch="bjet_eta", dfs_mc=[df_ttbar_muon, df_ttbar_bck_muon, df_si
 plot_variable(branch="bjet_btag", dfs_mc=[df_ttbar_muon, df_ttbar_bck_muon, df_singletop_muon, df_wjets_muon, df_qcdmu_muon, df_dy_muon, df_vv_muon][::-1], df_data=df_data_muon,
               labels_mc=[r'$t\overline{t}\rightarrow l\nu2q$', r"$t\overline{t}\rightarrow others$",  "SingleTop", "W+jets", "QCD", "DY", "VV"][::-1], colors_mc=["red", "tomato", "gold", "lime", "deepskyblue", "blue", "indigo"][::-1], nth_element=1,
               bins=20, xlim=(0., 1.),logy=False, #ylim=(0.95, 1*1e3), #logy=True,)
-              xlabel='DeepBTag subleading b-jet', title='tight_bjet_btag_subleading'
+              xlabel='DeepBTag subleading b-jet', title='bjet_btag_subleading'
              )
 
 #Subleading bjet pt
 plot_variable( branch="bjet_pt", dfs_mc=[df_ttbar_muon, df_ttbar_bck_muon, df_singletop_muon, df_wjets_muon, df_qcdmu_muon, df_dy_muon, df_vv_muon][::-1], df_data=df_data_muon,
               labels_mc=[r'$t\overline{t}\rightarrow l\nu2q$', r"$t\overline{t}\rightarrow others$",  "SingleTop", "W+jets", "QCD", "DY", "VV"][::-1], colors_mc=["red", "tomato", "gold", "lime", "deepskyblue", "blue", "indigo"][::-1], nth_element=1,
               bins=20, logy=False, xlim=(0, 300), #ylim=(0.75, 1*1e3),
-              xlabel=r'$p_T$ subleading b-jet [GeV]', title='tight_bjet_pt_subleading'
+              xlabel=r'$p_T$ subleading b-jet [GeV]', title='bjet_pt_subleading'
              )
 
 #Subleading bjet eta
 plot_variable(branch="bjet_eta", dfs_mc=[df_ttbar_muon, df_ttbar_bck_muon, df_singletop_muon, df_wjets_muon, df_qcdmu_muon, df_dy_muon, df_vv_muon][::-1], df_data=df_data_muon,
               labels_mc=[r'$t\overline{t}\rightarrow l\nu2q$', r"$t\overline{t}\rightarrow others$",  "SingleTop", "W+jets", "QCD", "DY", "VV"][::-1], colors_mc=["red", "tomato", "gold", "lime", "deepskyblue", "blue", "indigo"][::-1], nth_element=1,
               bins=15, xlim=(-3, 3), #ylim=(0, 2.05*1e2), #logy=True,
-              xlabel=r'$\eta$ subleading b-jet', title='tight_bjet_eta_subleading'
+              xlabel=r'$\eta$ subleading b-jet', title='bjet_eta_subleading'
              )
 
 #AK4 JETS
@@ -1730,11 +1747,11 @@ plot_variable(branch="bjet_eta", dfs_mc=[df_ttbar_muon, df_ttbar_bck_muon, df_si
 plot_variable( branch="Jet_pt", dfs_mc=[df_ttbar_muon, df_ttbar_bck_muon, df_singletop_muon, df_wjets_muon, df_qcdmu_muon, df_dy_muon, df_vv_muon][::-1], df_data=df_data_muon,
               labels_mc=[r'$t\overline{t}\rightarrow l\nu2q$', r"$t\overline{t}\rightarrow others$",  "SingleTop", "W+jets", "QCD", "DY", "VV"][::-1], colors_mc=["red", "tomato", "gold", "lime", "deepskyblue", "blue", "indigo"][::-1], nth_element=-1,
               bins=20, xlim=(0, 800), logy=False, #ylim=(0.7, 1.1*1e4),
-              xlabel=r'$p_T$ AK4 jets [GeV]', title='tight_AK4Jet_pt'
+              xlabel=r'$p_T$ AK4 jets [GeV]', title='AK4Jet_pt'
              )
 
 plot_variable( branch="fatjets.pt", dfs_mc=[df_ttbar_muon, df_ttbar_bck_muon, df_singletop_muon, df_wjets_muon, df_qcdmu_muon, df_dy_muon, df_vv_muon][::-1], df_data=df_data_muon,
               labels_mc=[r'$t\overline{t}\rightarrow l\nu2q$', r"$t\overline{t}\rightarrow others$",  "SingleTop", "W+jets", "QCD", "DY", "VV"][::-1], colors_mc=["red", "tomato", "gold", "lime", "deepskyblue", "blue", "indigo"][::-1], nth_element=-1,
               bins=20, xlim=(0, 800), logy=False, #ylim=(0.7, 1.1*1e4),
-              xlabel=r'$p_T$ Fat-jets [GeV]', title='tight_fatjets_pt'
+              xlabel=r'$p_T$ Fat-jets [GeV]', title='fatjets_pt'
              )  
