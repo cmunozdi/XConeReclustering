@@ -6,22 +6,27 @@ import os
 from glob import glob
 
 #Bool variables to know over which sample should we run the code
-is_ttbar_semi = True
-is_ttbar_bck = True
-is_singletop = True
-is_wjets = True
-is_qcdmu = True
-is_dy = True
-is_vv = True
+is_ttbar_semi = False
+is_ttbar_bck = False
+is_singletop = False
+is_wjets = False
+is_qcdmu = False
+is_dy = False
+is_vv = False
 is_data0 = True
 is_data1 = True
+
+OnlyGeneratePKLFiles = False
+# Directory to save output files
+output_dir = "/eos/project/r/rtu-topanalysis/cmunozdi/DataFramesPKL/2023preBPix/PreViewOnlyPreProductionSelectionMuonV1_JECcorrected"
 
 save_roots_boosted_selection = False
 
 
-# Cargar el header (ajusta el path si es necesario)
+# Charging the header (adjust the path if necessary)
 ROOT.gInterpreter.Declare('#include "./btagSFs/header_btag_scaleFactors.h"')
-# Inicializar los CorrectionSet SOLO UNA VEZ
+# Initializing the CorrectionSet ONLY ONCE
+ROOT.gInterpreter.ProcessLine("initializeCorrectionSet();")
 ROOT.gInterpreter.ProcessLine("initializeBTagCorrectionSet();")
 ROOT.gInterpreter.ProcessLine("initializeMUOCorrectionSet();")
 ROOT.gInterpreter.ProcessLine("initializePUReweightingCorrectionSet();")
@@ -30,17 +35,17 @@ ROOT.ROOT.EnableImplicitMT()
 
 def get_pattern(input_dir):
     if any(keyword in input_dir for keyword in ["wjets", "ttbar"]):
-        return "**/250818*/**/*.root"  # Patrón específico para wjets y ttbar
+        return "**/250818*/**/*.root"  # Specific pattern for wjets and ttbar
     else:
-        return "**/250*/**/*.root"  # Patrón general para otros directorios
+        return "**/250*/**/*.root"  # General pattern for other directories
 
 def create_rdf_with_weights(input_dir, cross_section, luminosity, max_files=None, isTTbar=False):
-    # Elegir el patrón según si es QCDMu o no
+    # Choose the pattern based on whether it's QCDMu or not
 #     pattern = "**/250622*/**/*.root"  if "QCDMu" in input_dir else  "**/250625*/**/*.root" if "TTbar" in input_dir else "**/250625*/**/*.root"
     pattern = "**/25*/**/*.root"
     all_root_files = glob(os.path.join(input_dir, pattern), recursive=True)
 
-    # Filtrar archivos que no terminan en coor.root, lumi.root, o runs.root
+    # Filter files that do not end with coor.root, lumi.root, or runs.root
     candidate_files = [
         f for f in all_root_files
         if not (f.endswith('events.root') or f.endswith('lumi.root') or f.endswith('runs.root'))
@@ -55,11 +60,11 @@ def create_rdf_with_weights(input_dir, cross_section, luminosity, max_files=None
             f.Close()
             continue
 
-        # Verificar que tenga TTree "Events"
+        # Check if it has TTree "Events"
         if f.Get("Events"):
             valid_files.append(file)
 
-        # Contar eventos generados si hay TTree "Runs"
+        # Count generated events if there is TTree "Runs"
         runs_tree = f.Get("Runs")
         if runs_tree:
             for entry in runs_tree:
@@ -67,27 +72,27 @@ def create_rdf_with_weights(input_dir, cross_section, luminosity, max_files=None
 
         f.Close()
 
-        # Si max_files está definido y ya tenemos suficientes archivos válidos, salimos
+        # If max_files is defined and we already have enough valid files, we exit the loop
         if max_files is not None and len(valid_files) >= max_files:
             break
 
     if not valid_files:
-        print(f"Advertencia: No se encontraron archivos válidos con TTree 'Events' en el directorio {input_dir}.")
-        return None  # O devolver un RDataFrame vacío si es necesario
+        print(f"Warning: No valid files with TTree 'Events' found in directory {input_dir}.")
+        return None  # Or return an empty RDataFrame if needed
 
     if total_gen_events_sumW == 0:
-        print(f"Advertencia: No se encontraron eventos generados en {input_dir}.")
-        return None  # O devolver un RDataFrame vacío si es necesario
+        print(f"Warning: No generated events found in {input_dir}.")
+        return None  # Or return an empty RDataFrame if needed
 
     event_weight = (luminosity * cross_section) / total_gen_events_sumW
 
-    # Crear el RDataFrame solo con los archivos válidos
+    # Create the RDataFrame only with the valid files
     rdf = ROOT.RDataFrame("Events", valid_files)
     rdf = rdf.Define("eventWeight", f"{event_weight}*genWeight") # > 0 ? genWeight : abs(genWeight)
     return rdf
 
 
-luminosity = 18.062658998*1000 #This new value is using /cvmfs/cms-bril.cern.ch/cms-lumi-pog/Normtags/normtag_PHYSICS.json instead of /cvmfs/cms-bril.cern.ch/cms-lumi-pog/Normtags/normtag_BRIL.json 18.084440726*1000 pb^-1
+luminosity = 18.062658998*1000 #Muon1 v1 correct JEC for data #7.220180367*1000 #Muon0&1 v1to3 wrong JEC for data #10.842478631*1000 #Muon0&1 v4 wrong JEC for data #1.606429085*1000 #Muon0&1 v3 wrong JEC for data #1.270749295*1000 #Muon0&1 v2 wrong JEC for data #4.343001987*1000   #Only version 1 Muon0&1 wrong JEC for data #18.062658998*1000 #This new value is using /cvmfs/cms-bril.cern.ch/cms-lumi-pog/Normtags/normtag_PHYSICS.json instead of /cvmfs/cms-bril.cern.ch/cms-lumi-pog/Normtags/normtag_BRIL.json 18.084440726*1000 pb^-1 
 
 cross_sections_singletop = [87.200000, 4.534000, 4.663095, 19.970880, 19.302840, 145.000000, 7.244000, 4.663095, 19.970880, 19.302840] #[87.200000, 1.477177, 19.302840, 145.000000, 2.360095, 19.302840] # #
 cross_sections_wjets = [368.200000, 421.900000, 25.600000, 54.770000, 0.878500, 3.119000, 4427.000000, 1598.000000, 0.105300, 0.526100]
@@ -351,7 +356,7 @@ if is_vv:
         "/eos/project/r/rtu-topanalysis/cmunozdi/AnalysisSamples_JetTightIDNoLepVeto_Full/MC/2023preBPix/VV/ZZ_TuneCP5_13p6TeV_pythia8"
     ]
 
-print("Iniciando la conversión de RDataFrames a DataFrames.")
+print("Initiating the conversion of RDataFrames to DataFrames.")
 
 
 
@@ -439,14 +444,33 @@ def apply_event_selection(rdfs, isMC=True, TWPbtag2023=0.6553):
         else:
             rdf = rdf.Define("Num_lep_above_15", "Sum(Muon_pt > 15 && abs(Muon_eta) < 2.4) + Sum(Electron_pt > 15 && abs(Electron_eta) < 2.4)")
 
+        # rdf = rdf.Redefine('muon', 'triggerLepton(Muon_pt, Muon_eta, Muon_phi, Muon_pdgId, Muon_jetIdx, Muon_tightId, PFCands_pt, PFCands_eta, PFCands_phi, \
+        #      PFCands_pdgId, Jet_pt, Jet_eta, Jet_phi, Jet_mass, Jet_passJetIdTight, Jet_rawFactor, Jet_area, Rho_fixedGridRhoFastjetAll, run, 25, true, false)') \
+        #          .Redefine('Electron_tightId', 'Electron_cutBased >= 4') \
+        #          .Redefine('electron', 'triggerLepton(Electron_pt, Electron_eta, Electron_phi, Electron_pdgId, Electron_jetIdx, Electron_tightId, \
+        #             PFCands_pt, PFCands_eta, PFCands_phi, PFCands_pdgId, Jet_pt, Jet_eta, Jet_phi, Jet_mass, Jet_passJetIdTight, Jet_rawFactor, Jet_area, Rho_fixedGridRhoFastjetAll, run, 25, false, false)') \
+        #          .Redefine('lepton', 'CombineLeptons(muon, electron)') \
+        #          .Redefine('n_leptons', 'lepton.n_lep') \
+                #  .Define('selected_lepton1_idx', 'ROOT::VecOps::ArgMax(lepton1.pt > 55 && abs(lepton1.eta) < 2.4)') \
+                #  .Define('is_muon1_trg', 'abs(lepton1.pdgId[selected_lepton1_idx]) == 13') \
+                #  .Define('printLepInfo', 'printValuesOfLepton(lepton)')
+
 
         rdf_filtered = (
             rdf
             # 1. Detector selection
             .Filter("pass_detector_selection", "Detector selection") #n_leptons == 1 && n_jets > 0 && pt_miss > 37.5 && n_fatjets > 0
+
 #             .Filter("lepton.n_lep==1")
 
             # 2. Lepton selection
+            # .Redefine('muon', 'triggerLepton(Muon_pt, Muon_eta, Muon_phi, Muon_pdgId, Muon_jetIdx, Muon_tightId, PFCands_pt, PFCands_eta, PFCands_phi, \
+            #      PFCands_pdgId, Jet_pt, Jet_eta, Jet_phi, Jet_mass, Jet_passJetIdTight, Jet_rawFactor, Jet_area, Rho_fixedGridRhoFastjetAll,, 25, true, false)') \
+            # .Redefine('Electron_tightId', 'Electron_cutBased >= 4') \
+            # .Redefine('electron', 'triggerLepton(Electron_pt, Electron_eta, Electron_phi, Electron_pdgId, Electron_jetIdx, Electron_tightId, \
+            #      PFCands_pt, PFCands_eta, PFCands_phi, PFCands_pdgId, Jet_pt, Jet_eta, Jet_phi, Jet_mass, Jet_passJetIdTight, Jet_rawFactor, Jet_area, Rho_fixedGridRhoFastjetAll, run, 25, false, false)') \
+            # .Redefine('lepton', 'CombineLeptons(muon, electron)') \
+            # .Redefine('n_leptons', 'lepton.n_lep') \
 #             .Define('lepton_trg', 'triggerLepton(Muon_pt, Muon_eta, Muon_phi, Muon_pdgId, Muon_jetIdx, Muon_tightId, PFCands_pt, \
 #                      PFCands_eta, PFCands_phi, PFCands_pdgId, Jet_pt, Jet_eta, Jet_phi, true, true)')
 #             .Define('muon_trg', 'triggerLepton(Muon_pt, Muon_eta, Muon_phi, Muon_pdgId, Muon_jetIdx, Muon_tightId, PFCands_pt, \
@@ -487,6 +511,7 @@ def apply_event_selection(rdfs, isMC=True, TWPbtag2023=0.6553):
             .Define('lepton_trg_pdgId', 'lepton.pdgId[selected_lepton_idx]') \
             .Define('lepton_trg_dR', 'lepton.dR_to_jet[selected_lepton_idx]') \
             .Define('lepton_trg_ptrel', 'lepton.pt_rel_to_jet[selected_lepton_idx]') \
+            .Define('lepton_trg_jet_pt', 'lepton.closest_jet_pt[selected_lepton_idx]') \
             .Define('num_muon_selected', 'Sum((Muon_pt == lepton_trg_pt) && (Muon_eta == lepton_trg_eta) && (Muon_phi == lepton_trg_phi) && (Muon_highPtId == 2) && (Muon_tkIsoId >= 1))') \
             # .Filter('num_muon_selected == 1', "Just 1 selected muon") \
             .Define(
@@ -495,6 +520,7 @@ def apply_event_selection(rdfs, isMC=True, TWPbtag2023=0.6553):
             ) \
             # .Redefine('lepton_trg_pt', 'lepton_tuneP_pt') \
             .Define('lepton_trg_n_lep', 'Sum((lepton.pt > 55) && (abs(lepton.eta) < 2.4))') \
+            .Define('lepton_jet_corrFactor', 'lepton.closest_jet_pt[selected_lepton_idx] / Jet_pt[lepton.closest_jet_idx[selected_lepton_idx]]') \
             #Si ya existe la rama Num_lep_above_15, redefinela, si no, créala
             # .Redefine('Num_lep_above_15', "Sum(Muon_pt > 15 && abs(Muon_eta) < 2.4) + Sum(Electron_pt > 15 && abs(Electron_eta) < 2.4)")
             # .Filter('Num_lep_above_15 == 1', "Only one lepton above 15 GeV") \
@@ -571,12 +597,12 @@ def apply_event_selection(rdfs, isMC=True, TWPbtag2023=0.6553):
             # .Filter("pass_trigger", "Trigger selection")
 
             # MET filters
-            .Define("pass_MET_filters_2023", "Flag_goodVertices && Flag_globalSuperTightHalo2016Filter && Flag_EcalDeadCellTriggerPrimitiveFilter && Flag_BadPFMuonFilter && Flag_BadPFMuonDzFilter && Flag_hfNoisyHitsFilter && Flag_eeBadScFilter")
+            # .Define("pass_MET_filters_2023", "Flag_goodVertices && Flag_globalSuperTightHalo2016Filter && Flag_EcalDeadCellTriggerPrimitiveFilter && Flag_BadPFMuonFilter && Flag_BadPFMuonDzFilter && Flag_hfNoisyHitsFilter && Flag_eeBadScFilter")
             # .Filter("pass_MET_filters_2023", "MET filters selection")
 
         )
         if isMC:
-            # Aplicar corrección de b-tagging si es MC
+            # Apply b-tagging correction if it is MC
             branches = set(rdf_filtered.GetColumnNames())
             if "btagWeight" in branches:
                 rdf_filtered = rdf_filtered.Redefine("btagWeight", "compute_btagWeight(Jet_pt, Jet_eta, Jet_hadronFlavour, Jet_btagDeepFlavB)") \
@@ -597,29 +623,18 @@ def apply_event_selection(rdfs, isMC=True, TWPbtag2023=0.6553):
             rdf_filtered = rdf_filtered.Define("PUReweighting", "compute_PUReweight(Pileup_nTrueInt)") \
                                     #    .Redefine("eventWeight", "eventWeight * PUReweighting")
 
+        # else:
+        #     #ONLY FOR DATA SINCE SEEMS THAT IT IS NOT WORKING DURING NTUPLE PRODUCTION
+        #     rdf_filtered = rdf_filtered.Filter("topjets.n_subjets ==3 && topjets.pt > 200", "At least one topjet with 3 subjets and pt > 200 GeV")
+
         filtered_rdfs.append(rdf_filtered)
 
     return filtered_rdfs
 
 
-columns_mc = ["eventWeight", "btagWeight", "muoWeight", "PUReweighting", #"event", "run", "luminosityBlock", "lepton.pt", "lepton.eta", "lepton.phi", "lepton.pdgId", "lepton.n_lep", "lepton.dR_to_jet", "lepton.pt_rel_to_jet", "lepton.closest_jet_idx", #Uncomment this when lepton already has dR and ptrel
-#               "muon.pt", "muon.eta", "muon.phi", "muon.pdgId", "electron.pt", "electron.eta", "electron.phi", "electron.pdgId",
-            #   "Muon_pt", "Muon_eta", "Muon_phi", "Muon_pdgId", "Electron_pt", "Electron_eta", "Electron_phi", "Electron_pdgId", "Num_lep_above_15", "Muon_jetIdx",
-              "lepton_trg_pt", "lepton_tuneP_pt", "lepton_trg_eta", "lepton_trg_phi", "lepton_trg_pdgId", "lepton_trg_n_lep", "lepton_trg_dR", "lepton_trg_ptrel",
-            #   "PuppiMET_pt", "Jet_pt", "HLT_Mu50", "HLT_Ele30_WPTight_Gsf", "HLT_Ele115_CaloIdVT_GsfTrkIdT", "HLT_Photon175",
-#               "electron_trg.pt", "muon.pt",
-              "Jet_pt", "Jet_eta", "Jet_btagDeepFlavB", "Jet_hadronFlavour", "Jet_passJetIdTightLepVeto", "Jet_passJetIdTight",
-              "Jet_phi", "Jet_rawFactor", "Jet_area","Rho_fixedGridRhoFastjetAll", #"Jet_passJetIdTightLepVeto",#
-              "bjet_pt", "bjet_eta", "bjet_btag", "n_bjets", #"pt_miss",
-              "PuppiMET_pt",
-              "fatjets.n_jets", "fatjets.pt", "fatjets.eta",
-              "fatjets.phi", "fatjets.mass",
-              "subjets.n_jets", "subjets.pt", "subjets.eta", "subjets.phi", "subjets.mass", "subjets.findLepton",
-              "topjets.n_subjets", "topjets.pt", "topjets.eta", "topjets.phi", "topjets.mass",
-              "topjets.subjets_in_topjet", "topjets.pt_W", "topjets.eta_W", "topjets.phi_W",
-              "topjets.mass_W", "topjets.subjets_in_W", "fastjet_CandsList", "subjet_CandsList", "fatjets.findLepton",
-              "TopPtWeight_NNLOpNLOEW", "Pileup_nTrueInt",
-              "pass_detector_selection", ]#"PFCands_pt", "PFCands_eta", "PFCands_phi", "PFCands_pdgId"]
+columns_mc = ["eventWeight", "lepton_trg_pt", "lepton_tuneP_pt", "lepton_trg_eta", "lepton_trg_jet_pt", "pass_trigger", "PUReweighting", "pass_MET_filters_2023", "Num_lep_above_15", "num_muon_selected", "is_muon_trg", "PuppiMET_pt", "n_bjets", "TopPtWeight_NNLOpNLOEW", "muoWeight", "btagWeight", "topjets.pt", "num_subjets_in_topjet_pt30_eta2p5", "topjets.n_subjets", "Jet_pt", "Jet_eta", "Jet_hadronFlavour", "Jet_btagDeepFlavB", "Pileup_nTrueInt"]
+
+# columns_mc = ["eventWeight", "lepton", "lepton_trg_pt", "lepton_tuneP_pt", "lepton_trg_eta", "lepton_trg_jet_pt", "pass_trigger", "PUReweighting", "pass_MET_filters_2023", "Num_lep_above_15", "num_muon_selected", "is_muon_trg", "PuppiMET_pt", "n_bjets", "TopPtWeight_NNLOpNLOEW", "muoWeight", "btagWeight", "topjets.pt", "num_subjets_in_topjet_pt30_eta2p5", "topjets.n_subjets", "Jet_pt", "Jet_eta", "Jet_hadronFlavour", "Jet_btagDeepFlavB", "Pileup_nTrueInt"]
 
 columns_data = [col for col in columns_mc if col not in ["eventWeight", "btagWeight", "muoWeight", "PUReweighting", "Jet_hadronFlavour", "TopPtWeight_NNLOpNLOEW", "Pileup_nTrueInt"]]
 # columns_data = columns_data + ["Jet_passJetIdTightLepVeto"]
@@ -627,7 +642,7 @@ columns_data = [col for col in columns_mc if col not in ["eventWeight", "btagWei
 # DATA: MUON 0
 if is_data0:
     print("Creating RDataFrames for Data 0 samples...")
-    input_dirs_data0 = "/eos/project/r/rtu-topanalysis/cmunozdi/AnalysisSamples_JetTightIDNoLepVeto_Full/Data/2023preBPix/Muon0/Run*" #"/eos/project/r/rtu-topanalysis/cmunozdi/AnalysisSamples/Data/2023preBPix/Muon0/**"  #"/eos/project/r/rtu-topanalysis/cmunozdi/AnalysisSamples_JetTightID/Data/2023preBPix/Muon0/**" #
+    input_dirs_data0 = "/eos/project/r/rtu-topanalysis/cmunozdi/AnalysisSamples_JetTightIDNoLepVeto_Full/Data/2023preBPix/Muon0_CorrectedJEC/Run2023C-22Sep2023_v*" #-v1_BTV_Run3_2023_Comm_MINIAODv4/" #"/eos/project/r/rtu-topanalysis/cmunozdi/AnalysisSamples/Data/2023preBPix/Muon0/**"  #"/eos/project/r/rtu-topanalysis/cmunozdi/AnalysisSamples_JetTightID/Data/2023preBPix/Muon0/**" #
     root_files_data0 = glob(os.path.join(input_dirs_data0, "**/**/*.root"))#"250818*/**/*.root")) #"**/**/*.root"))
     rdf_data0 = ROOT.RDataFrame("Events", root_files_data0)
 
@@ -642,27 +657,41 @@ if is_data0:
                 print(f"Column {col} filtered.")
             except:
                 print(f"Column {col} could not be filtered.")
-        rdf_clean.Snapshot('Events', "/eos/project/r/rtu-topanalysis/cmunozdi/DataFramesPKL/2023preBPix/OnlyPreProductionSelection/rootFilesBoostedSelection/data0_boosted_selection.root", columns)
+        rdf_clean.Snapshot('Events', "/eos/project/r/rtu-topanalysis/cmunozdi/DataFramesPKL/2023preBPix/OnlyPreProductionSelectionMuonV2/rootFilesBoostedSelection/data0_boosted_selection.root", columns)
 
 
-    print("Iniciando la conversión de RDataFrames a DataFrames para Data 0...")
+    print("Initiating the conversion of RDataFrames to DataFrames for Data 0...")
     df_data0 = pd.DataFrame(rdf_data0.AsNumpy(columns=columns_data))
-    print("Conversión completada para Data 0.")
+    print("Conversion completed for Data 0.")
 
-    print("Guardando DataFrame de Data 0 en formato pickle...")
-    df_data0.to_pickle("/eos/project/r/rtu-topanalysis/cmunozdi/DataFramesPKL/2023preBPix/OnlyPreProductionSelection/data0.pkl")
-    print("Archivo guardado: data0.pkl")
+    print("Saving DataFrame of Data 0 in pickle format...")
+    # Using general variable output path    
+    df_data0.to_pickle(f"{output_dir}/data0.pkl")
+    print("File saved: data0_v1.pkl")
     print("Number of events: ", len(df_data0))
-    del rdf_data0  # Liberar memoria
+    del rdf_data0  # Release memory
+    if OnlyGeneratePKLFiles:
+        del df_data0
 else:
-    print("Cargando DataFrame de Data 0 desde archivo pickle existente...")
-    df_data0 = pd.read_pickle("/eos/project/r/rtu-topanalysis/cmunozdi/DataFramesPKL/2023preBPix/OnlyPreProductionSelection/data0.pkl")
-    print("Carga completada para Data 0.")
+    if(not OnlyGeneratePKLFiles):
+        print("Loading DataFrame of Data 0 from existing pickle file...")
+        # Load several pkl and concatenate them
+        pkl_files_data0 = ["/eos/project/r/rtu-topanalysis/cmunozdi/DataFramesPKL/2023preBPix/OnlyPreProductionSelectionMuonV1/data0_v1.pkl",
+                            "/eos/project/r/rtu-topanalysis/cmunozdi/DataFramesPKL/2023preBPix/OnlyPreProductionSelectionMuonV2/data0_v2.pkl",
+                            "/eos/project/r/rtu-topanalysis/cmunozdi/DataFramesPKL/2023preBPix/OnlyPreProductionSelectionMuonV3/data0_v3.pkl"]
+
+        dfs = [pd.read_pickle(pkl) for pkl in pkl_files_data0]
+        df_data0 = pd.concat(dfs, ignore_index=True)
+
+        del dfs  # Release memory from the list of DataFrames
+
+        df_data0.to_pickle(f"{output_dir}/data0_v1to3.pkl")
+        print("Completion of loading for Data 0.")
 
 # DATA: MUON 1
 if is_data1:
     print("Creating RDataFrames for Data 1 samples...")
-    input_dirs_data1 = "/eos/project/r/rtu-topanalysis/cmunozdi/AnalysisSamples_JetTightIDNoLepVeto_Full/Data/2023preBPix/Muon1/Run*" #"/eos/project/r/rtu-topanalysis/cmunozdi/AnalysisSamples/Data/2023preBPix/Muon1/**" #"/eos/project/r/rtu-topanalysis/cmunozdi/AnalysisSamples_JetTightID/Data/2023preBPix/Muon1/**" #
+    input_dirs_data1 = "/eos/project/r/rtu-topanalysis/cmunozdi/AnalysisSamples_JetTightIDNoLepVeto_Full/Data/2023preBPix/Muon1_CorrectedJEC/Run2023C-22Sep2023_v*" #4-v2_BTV_Run3_2023_Comm_MINIAODv4/" #"/eos/project/r/rtu-topanalysis/cmunozdi/AnalysisSamples/Data/2023preBPix/Muon1/**" #"/eos/project/r/rtu-topanalysis/cmunozdi/AnalysisSamples_JetTightID/Data/2023preBPix/Muon1/**" #
     root_files_data1 = glob(os.path.join(input_dirs_data1, "**/**/*.root"))#"250818*/**/*.root")) #"**/**/*.root"))
     rdf_data1 = ROOT.RDataFrame("Events", root_files_data1)
 
@@ -670,25 +699,39 @@ if is_data1:
     rdf_data1 = apply_event_selection([rdf_data1], isMC=False)[0]
     if save_roots_boosted_selection:
         columns = list(rdf_data0.GetColumnNames())
-        rdf_data1.Snapshot("Events", "/eos/project/r/rtu-topanalysis/cmunozdi/DataFramesPKL/2023preBPix/OnlyPreProductionSelection/rootFilesBoostedSelection/data1_boosted_selection.root", columns)
+        rdf_data1.Snapshot("Events", "/eos/project/r/rtu-topanalysis/cmunozdi/DataFramesPKL/2023preBPix/OnlyPreProductionSelectionMuonV2/rootFilesBoostedSelection/data1_boosted_selection.root", columns)
 
-    print("Iniciando la conversión de RDataFrames a DataFrames para Data 1...")
+    print("Initiating the conversion of RDataFrames to DataFrames for Data 1...")
     df_data1 = pd.DataFrame(rdf_data1.AsNumpy(columns=columns_data))
-    print("Conversión completada para Data.")
+    print("Conversion completed for Data 1.")
 
-    print("Guardando DataFrame de Data 1 en formato pickle...")
-    df_data1.to_pickle("/eos/project/r/rtu-topanalysis/cmunozdi/DataFramesPKL/2023preBPix/OnlyPreProductionSelection/data1.pkl")
-    print("Archivo guardado: data1.pkl")
+    print("Saving DataFrame of Data 1 in pickle format...")
+    df_data1.to_pickle(f"{output_dir}/data1.pkl")
+    print("File saved: data1_v1.pkl")
     print("Number of events: ", len(df_data1))
-    del rdf_data1  # Liberar memoria
+    del rdf_data1  # Release memory
+    if OnlyGeneratePKLFiles:
+        del df_data1
 else:
-    print("Cargando DataFrame de Data 1 desde archivo pickle existente...")
-    df_data1 = pd.read_pickle("/eos/project/r/rtu-topanalysis/cmunozdi/DataFramesPKL/2023preBPix/OnlyPreProductionSelection/data1.pkl")
-    print("Carga completada para Data 1.")
+    if(not OnlyGeneratePKLFiles):
+        print("Loading DataFrame of Data 1 from existing pickle file...")
+        # Load several pkl and concatenate them
+        pkl_files_data1 = ["/eos/project/r/rtu-topanalysis/cmunozdi/DataFramesPKL/2023preBPix/OnlyPreProductionSelectionMuonV1/data1_v1.pkl",
+                            "/eos/project/r/rtu-topanalysis/cmunozdi/DataFramesPKL/2023preBPix/OnlyPreProductionSelectionMuonV2/data1_v2.pkl",
+                            "/eos/project/r/rtu-topanalysis/cmunozdi/DataFramesPKL/2023preBPix/OnlyPreProductionSelectionMuonV3/data1_v3.pkl"]
+        dfs = [pd.read_pickle(pkl) for pkl in pkl_files_data1]
+        df_data1 = pd.concat(dfs, ignore_index=True)
+        del dfs  # Release memory from the list of DataFrames
 
-df_data = pd.concat([df_data0, df_data1], ignore_index=True)
-del df_data0
-del df_data1
+        df_data1.to_pickle(f"{output_dir}/data1_v1to3.pkl")
+        print("Completion of loading for Data 1.")
+if not OnlyGeneratePKLFiles:
+    df_data = pd.concat([df_data0, df_data1], ignore_index=True)
+    del df_data0
+    del df_data1
+
+factor = luminosity / (18.062658998 * 1000)
+
 
 # MC: SINGLE TOP
 if is_singletop:
@@ -704,47 +747,54 @@ if is_singletop:
         columns = list(rdf_data0.GetColumnNames())
         rdfs_singletop.Snapshot("Events", "/eos/project/r/rtu-topanalysis/cmunozdi/DataFramesPKL/2023preBPix/OnlyPreProductionSelection/rootFilesBoostedSelection/singletop_boosted_selection.root", columns)
 
-    print("Iniciando la conversión de RDataFrames a DataFrames para SingleTop...")
+    print("Initiating the conversion of RDataFrames to DataFrames for SingleTop...")
     df_singletop = pd.concat([
         pd.DataFrame(rdf.AsNumpy(columns=columns_mc))
         for rdf in rdfs_singletop
     ], ignore_index=True)
-    print("Conversión completada para SingleTop.")
-    print("Guardando DataFrame de SingleTop en formato pickle...")
-    df_singletop.to_pickle("/eos/project/r/rtu-topanalysis/cmunozdi/DataFramesPKL/2023preBPix/OnlyPreProductionSelection/singletop.pkl")
-    print("Archivo guardado: singletop.pkl")
+    print("Conversion completed for SingleTop.")
+    print("Saving DataFrame of SingleTop in pickle format...")
+    df_singletop.to_pickle(f"{output_dir}/singletop.pkl")
+    print("File saved: singletop.pkl")
     print("Number of events: ", len(df_singletop))
-    del rdfs_singletop  # Liberar memoria
+    del rdfs_singletop  # Release memory
+    if OnlyGeneratePKLFiles:
+        del df_singletop
 else:
-    print("Cargando DataFrame de Single Top desde archivo pickle existente...")
-    df_singletop = pd.read_pickle("/eos/project/r/rtu-topanalysis/cmunozdi/DataFramesPKL/2023preBPix/OnlyPreProductionSelection/singletop.pkl")
-    print("Carga completada para Single Top.")
+    if(not OnlyGeneratePKLFiles):
+        print("Loading DataFrame of Single Top from existing pickle file...")
+        df_singletop = pd.read_pickle(f"{output_dir}/singletop.pkl")
+        df_singletop['eventWeight'] = df_singletop['eventWeight'] * factor
+        df_singletop.to_pickle(f"{output_dir}/singletop.pkl")
+        print("Completion of loading for Single Top.")
 
 # MC: W+JETS
 if is_wjets:
     for i, (path, xs) in enumerate(zip(input_dirs_wjets, cross_sections_wjets)):
-        print(f"Procesando muestra {i+1}/{len(input_dirs_wjets)}: {path}")
+        if i > 2: continue
+        print(f"Processing sample {i+1}/{len(input_dirs_wjets)}: {path}")
         rdf = create_rdf_with_weights(path, xs, luminosity)
-        rdf = [rdf]  # poner en lista
+        rdf = [rdf]  # put in list to use apply_event_selection
         rdf = apply_event_selection(rdf)
         rdf = rdf[0]
         df_part = pd.DataFrame(rdf.AsNumpy(columns=columns_mc))
-        pickle_path = f"/eos/project/r/rtu-topanalysis/cmunozdi/DataFramesPKL/2023preBPix/OnlyPreProductionSelection/wjets_part{i}.pkl"
+        pickle_path = f"{output_dir}/wjets_part{i}.pkl"
         df_part.to_pickle(pickle_path)
-        print("Guardado:", pickle_path)
+        print("File saved:", pickle_path)
         del df_part, rdf
-        ROOT.gSystem.ProcessEvents()  # limpia buffers ROOT
+        ROOT.gSystem.ProcessEvents()  # Clean ROOT buffers
 
-    # Define el patrón para encontrar todos los archivos pickle parciales
-    pkl_files = sorted(glob("/eos/project/r/rtu-topanalysis/cmunozdi/DataFramesPKL/2023preBPix/OnlyPreProductionSelection/wjets_part*.pkl"))
+    if not OnlyGeneratePKLFiles:
+        # Define the pattern to find all partial pickle files
+        pkl_files = sorted(glob(f"{output_dir}/wjets_part*.pkl"))
 
-    # Leer todos los archivos pickle en una lista de DataFrames
-    dfs = [pd.read_pickle(pkl) for pkl in pkl_files]
+        # Read all pickle files into a list of DataFrames
+        dfs = [pd.read_pickle(pkl) for pkl in pkl_files]
 
-    # Concatenar todos los DataFrames en uno solo
-    df_wjets = pd.concat(dfs, ignore_index=True)
+        # Concatenate all DataFrames into one
+        df_wjets = pd.concat(dfs, ignore_index=True)
 
-    del dfs  # liberar memoria
+        del dfs  # Release memory
     # print("Creating RDataFrames for W+jets samples...")
     # rdfs_wjets = [
     #     create_rdf_with_weights(path, xs, luminosity)#, max_files=100)
@@ -781,17 +831,22 @@ if is_wjets:
     # print("Number of events: ", len(df_wjets))
     # del rdfs_wjets  # Liberar memoria
 else:
-    # Define el patrón para encontrar todos los archivos pickle parciales
-    pkl_files = sorted(glob("/eos/project/r/rtu-topanalysis/cmunozdi/DataFramesPKL/2023preBPix/OnlyPreProductionSelection/wjets_part*.pkl"))
+    if(not OnlyGeneratePKLFiles):
+        # Define the pattern to find all partial pickle files
+        pkl_files = sorted(glob(f"{output_dir}/wjets_part*.pkl"))
 
-    # Leer todos los archivos pickle en una lista de DataFrames
-    print("Cargando DataFrame de W+jets desde archivos pickle existentes...")
-    dfs = [pd.read_pickle(pkl) for pkl in pkl_files]
+        # Read all pickle files into a list of DataFrames
+        print("Loading DataFrame of W+jets from existing pickle files...")
+        dfs = [pd.read_pickle(pkl) for pkl in pkl_files]
+        for i, df in enumerate(dfs):
+            df['eventWeight'] = df['eventWeight'] * factor
+            df.to_pickle(f"{output_dir}/wjets_part{i}.pkl")
 
-    # Concatenar todos los DataFrames en uno solo
-    df_wjets = pd.concat(dfs, ignore_index=True)
-    print("Carga completada para W+jets.")
-    del dfs  # liberar memoria
+        # Concatenate all DataFrames into one
+        df_wjets = pd.concat(dfs, ignore_index=True)
+        print("Loading completed for W+jets.")
+        del dfs  # Release memory
+
     # print("Cargando DataFrame de W+jets desde archivo pickle existente...")
     # df_wjets = pd.read_pickle("/eos/project/r/rtu-topanalysis/cmunozdi/DataFramesPKL/2023preBPix/OnlyPreProductionSelection/wjets.pkl")
     # print("Carga completada para W+jets.")
@@ -810,21 +865,26 @@ if is_ttbar_semi:
         columns = list(rdf_data0.GetColumnNames())
         rdfs_ttbar.Snapshot("Events", "/eos/project/r/rtu-topanalysis/cmunozdi/DataFramesPKL/2023preBPix/OnlyPreProductionSelection/rootFilesBoostedSelection/ttbar_semi_boosted_selection.root", columns)
 
-    print("Iniciando la conversión de RDataFrames a DataFrames para TTBar...")
+    print("Initiating the conversion of RDataFrames to DataFrames for TTBar...")
     df_ttbar = pd.concat([
         pd.DataFrame(rdf.AsNumpy(columns=columns_mc))
         for rdf in rdfs_ttbar
     ], ignore_index=True)
-    print("Conversión completada para TTBar.")
-    print("Guardando DataFrame de TTBar en formato pickle...")
-    df_ttbar.to_pickle("/eos/project/r/rtu-topanalysis/cmunozdi/DataFramesPKL/2023preBPix/OnlyPreProductionSelection/ttbar_semi.pkl")
-    print("Archivo guardado: ttbar_semi.pkl")
+    print("Conversion completed for TTBar.")
+    print("Saving DataFrame of TTBar in pickle format...")
+    df_ttbar.to_pickle(f"{output_dir}/ttbar_semi.pkl")
+    print("File saved: ttbar_semi.pkl")
     print("Number of events: ", len(df_ttbar))
-    del rdfs_ttbar  # Liberar memoria
+    del rdfs_ttbar  # Release memory
+    if OnlyGeneratePKLFiles:
+        del df_ttbar
 else:
-    print("Cargando DataFrame de TTBar semileptonic desde archivo pickle existente...")
-    df_ttbar = pd.read_pickle("/eos/project/r/rtu-topanalysis/cmunozdi/DataFramesPKL/2023preBPix/OnlyPreProductionSelection/ttbar_semi.pkl")
-    print("Carga completada para TTBar semileptonic.")
+    if (not OnlyGeneratePKLFiles):
+        print("Loading DataFrame of TTBar semileptonic from existing pickle file...")
+        df_ttbar = pd.read_pickle(f"{output_dir}/ttbar_semi.pkl")
+        df_ttbar['eventWeight'] = df_ttbar['eventWeight'] * factor
+        df_ttbar.to_pickle(f"{output_dir}/ttbar_semi.pkl")
+        print("Loading completed for TTBar semileptonic.")
 
     # # Suponiendo que el peso total se llama "weight" (ajusta si es distinto)
     # df_ttbar["eventWeight"] = df_ttbar["eventWeight"] / 0.73
@@ -846,21 +906,26 @@ if is_ttbar_bck:
         columns = list(rdf_data0.GetColumnNames())
         rdfs_ttbar_bck.Snapshot("Events", "/eos/project/r/rtu-topanalysis/cmunozdi/DataFramesPKL/2023preBPix/OnlyPreProductionSelection/rootFilesBoostedSelection/ttbar_bck_boosted_selection.root", columns)
 
-    print("Iniciando la conversión de RDataFrames a DataFrames para TTBar Background...")
+    print("Initiating the conversion of RDataFrames to DataFrames for TTBar Background...")
     df_ttbar_bck = pd.concat([
         pd.DataFrame(rdf.AsNumpy(columns=columns_mc))
         for rdf in rdfs_ttbar_bck
     ], ignore_index=True)
-    print("Conversión completada para TTBar Background.")
-    print("Guardando DataFrame de TTBar Background en formato pickle...")
-    df_ttbar_bck.to_pickle("/eos/project/r/rtu-topanalysis/cmunozdi/DataFramesPKL/2023preBPix/OnlyPreProductionSelection/ttbar_bck.pkl")
-    print("Archivo guardado: ttbar_bck.pkl")
+    print("Conversion completed for TTBar Background.")
+    print("Saving DataFrame of TTBar Background in pickle format...")
+    df_ttbar_bck.to_pickle(f"{output_dir}/ttbar_bck.pkl")
+    print("File saved: ttbar_bck.pkl")
     print("Number of events: ", len(df_ttbar_bck))
-    del rdfs_ttbar_bck  # Liberar memoria
+    del rdfs_ttbar_bck  # Release memory
+    if OnlyGeneratePKLFiles:
+        del df_ttbar_bck
 else:
-    print("Cargando DataFrame de TTBar Background desde archivo pickle existente...")
-    df_ttbar_bck = pd.read_pickle("/eos/project/r/rtu-topanalysis/cmunozdi/DataFramesPKL/2023preBPix/OnlyPreProductionSelection/ttbar_bck.pkl")
-    print("Carga completada para TTBar Background.")
+    if (not OnlyGeneratePKLFiles):
+        print("Loading DataFrame of TTBar Background from existing pickle file...")
+        df_ttbar_bck = pd.read_pickle(f"{output_dir}/ttbar_bck.pkl")
+        df_ttbar_bck['eventWeight'] = df_ttbar_bck['eventWeight'] * factor
+        df_ttbar_bck.to_pickle(f"{output_dir}/ttbar_bck.pkl")
+        print("Loading completed for TTBar Background.")
 
     # df_ttbar_bck["eventWeight"] = df_ttbar_bck["eventWeight"] / 0.73
     # print("Guardando ttbar bck sin extra weight")
@@ -881,21 +946,26 @@ if is_qcdmu:
         columns = list(rdf_data0.GetColumnNames())
         rdfs_qcdmu.Snapshot("Events", "/eos/project/r/rtu-topanalysis/cmunozdi/DataFramesPKL/2023preBPix/OnlyPreProductionSelection/rootFilesBoostedSelection/qcdmu_boosted_selection.root", columns)
 
-    print("Iniciando la conversión de RDataFrames a DataFrames para QCDMu...")
+    print("Initiating the conversion of RDataFrames to DataFrames for QCDMu...")
     df_qcdmu = pd.concat([
         pd.DataFrame(rdf.AsNumpy(columns=columns_mc))
         for rdf in rdfs_qcdmu
     ], ignore_index=True)
-    print("Conversión completada para QCDMu.")
-    print("Guardando DataFrame de QCDMu en formato pickle...")
-    df_qcdmu.to_pickle("/eos/project/r/rtu-topanalysis/cmunozdi/DataFramesPKL/2023preBPix/OnlyPreProductionSelection/qcdmu.pkl")
-    print("Archivo guardado: qcdmu.pkl")
+    print("Conversion completed for QCDMu.")
+    print("Saving DataFrame of QCDMu in pickle format...")
+    df_qcdmu.to_pickle(f"{output_dir}/qcdmu.pkl")
+    print("File saved: qcdmu.pkl")
     print("Number of events: ", len(df_qcdmu))
-    del rdfs_qcdmu  # Liberar memoria
+    del rdfs_qcdmu  # Release memory
+    if OnlyGeneratePKLFiles:
+        del df_qcdmu
 else:
-    print("Cargando DataFrame de QCDMu desde archivo pickle existente...")
-    df_qcdmu = pd.read_pickle("/eos/project/r/rtu-topanalysis/cmunozdi/DataFramesPKL/2023preBPix/OnlyPreProductionSelection/qcdmu.pkl")
-    print("Carga completada para QCDMu.")
+    if (not OnlyGeneratePKLFiles):
+        print("Loading DataFrame of QCDMu from existing pickle file...")
+        df_qcdmu = pd.read_pickle(f"{output_dir}/qcdmu.pkl")
+        df_qcdmu['eventWeight'] = df_qcdmu['eventWeight'] * factor
+        df_qcdmu.to_pickle(f"{output_dir}/qcdmu.pkl")
+        print("Loading completed for QCDMu.")
 
 # MC: DY
 if is_dy:
@@ -911,21 +981,26 @@ if is_dy:
         columns = list(rdf_data0.GetColumnNames())
         rdfs_dy.Snapshot("Events", "/eos/project/r/rtu-topanalysis/cmunozdi/DataFramesPKL/2023preBPix/OnlyPreProductionSelection/rootFilesBoostedSelection/dy_boosted_selection.root", columns)
 
-    print("Iniciando la conversión de RDataFrames a DataFrames para DY...")
+    print("Initiating the conversion of RDataFrames to DataFrames for DY...")
     df_dy = pd.concat([
         pd.DataFrame(rdf.AsNumpy(columns=columns_mc))
         for rdf in rdfs_dy
     ], ignore_index=True)
-    print("Conversión completada para DY.")
-    print("Guardando DataFrame de DY en formato pickle...")
-    df_dy.to_pickle("/eos/project/r/rtu-topanalysis/cmunozdi/DataFramesPKL/2023preBPix/OnlyPreProductionSelection/dy.pkl")
-    print("Archivo guardado: dy.pkl")
+    print("Conversion completed for DY.")
+    print("Saving DataFrame of DY in pickle format...")
+    df_dy.to_pickle(f"{output_dir}/dy.pkl")
+    print("File saved: dy.pkl")
     print("Number of events dy: ", len(df_dy))
-    del rdfs_dy  # Liberar memoria
+    del rdfs_dy  # Release memory
+    if OnlyGeneratePKLFiles:
+        del df_dy
 else:
-    print("Cargando DataFrame de DY desde archivo pickle existente...")
-    df_dy = pd.read_pickle("/eos/project/r/rtu-topanalysis/cmunozdi/DataFramesPKL/2023preBPix/OnlyPreProductionSelection/dy.pkl")
-    print("Carga completada para DY.")
+    if (not OnlyGeneratePKLFiles):
+        print("Loading DataFrame of DY from existing pickle file    ...")
+        df_dy = pd.read_pickle(f"{output_dir}/dy.pkl")
+        df_dy['eventWeight'] = df_dy['eventWeight'] * factor
+        df_dy.to_pickle(f"{output_dir}/dy.pkl")
+        print("Loading completed for DY.")
 
 # MC: VV
 if is_vv:
@@ -941,21 +1016,30 @@ if is_vv:
         columns = list(rdf_data0.GetColumnNames())
         rdfs_vv.Snapshot("Events", "/eos/project/r/rtu-topanalysis/cmunozdi/DataFramesPKL/2023preBPix/OnlyPreProductionSelection/rootFilesBoostedSelection/vv_boosted_selection.root", columns)
 
-    print("Iniciando la conversión de RDataFrames a DataFrames para VV...")
+    print("Initiating the conversion of RDataFrames to DataFrames for VV...")
     df_vv = pd.concat([
         pd.DataFrame(rdf.AsNumpy(columns=columns_mc))
         for rdf in rdfs_vv
     ], ignore_index=True)
-    print("Conversión completada para VV.")
-    print("Guardando DataFrame de VV en formato pickle...")
-    df_vv.to_pickle("/eos/project/r/rtu-topanalysis/cmunozdi/DataFramesPKL/2023preBPix/OnlyPreProductionSelection/vv.pkl")
-    print("Archivo guardado: vv.pkl")
+    print("Conversion completed for VV.")
+    print("Saving DataFrame of VV in pickle format...")
+    df_vv.to_pickle(f"{output_dir}/vv.pkl")
+    print("File saved: vv.pkl")
     print("Number of events vv: ", len(df_vv))
-    del rdfs_vv  # Liberar memoria
+    del rdfs_vv  # Release memory
+    if OnlyGeneratePKLFiles:
+        del df_vv
 else:
-    print("Cargando DataFrame de VV desde archivo pickle existente...")
-    df_vv = pd.read_pickle("/eos/project/r/rtu-topanalysis/cmunozdi/DataFramesPKL/2023preBPix/OnlyPreProductionSelection/vv.pkl")
-    print("Carga completada para VV.")
+    if (not OnlyGeneratePKLFiles):
+        print("Loading DataFrame of VV from existing pickle file...")
+        df_vv = pd.read_pickle(f"{output_dir}/vv.pkl")
+        df_vv['eventWeight'] = df_vv['eventWeight'] * factor
+        df_vv.to_pickle(f"{output_dir}/vv.pkl")
+        print("Loading completed for VV.")
+
+if OnlyGeneratePKLFiles:
+    print("Only PKL files were generated. Exiting the program.")
+    exit(0)
 
 
 def convert_cpp_vectors_to_list(df):
@@ -979,21 +1063,21 @@ def convert_cpp_vectors_to_list(df):
 
 
 df_data = convert_cpp_vectors_to_list(df_data)
-print("DataFrame de Data convertido a listas.")
+print("DataFrame of Data converted to lists.")
 df_ttbar = convert_cpp_vectors_to_list(df_ttbar)
-print("DataFrame de TTBar convertido a listas.")
+print("DataFrame of TTBar converted to lists.")
 df_ttbar_bck = convert_cpp_vectors_to_list(df_ttbar_bck)
-print("DataFrame de TTBar Background convertido a listas.")
+print("DataFrame of TTBar Background converted to lists.")
 df_singletop = convert_cpp_vectors_to_list(df_singletop)
-print("DataFrame de SingleTop convertido a listas.")
+print("DataFrame of SingleTop converted to lists.")
 df_wjets = convert_cpp_vectors_to_list(df_wjets)
-print("DataFrame de WJets convertido a listas.")
+print("DataFrame of WJets converted to lists.")
 df_qcdmu = convert_cpp_vectors_to_list(df_qcdmu)
-print("DataFrame de QCDMu convertido a listas.")
+print("DataFrame of QCDMu converted to lists.")
 df_dy = convert_cpp_vectors_to_list(df_dy)
-print("DataFrame de DY convertido a listas.")
+print("DataFrame of DY converted to lists.")
 df_vv = convert_cpp_vectors_to_list(df_vv)
-print("DataFrame de VV convertido a listas.")
+print("DataFrame of VV converted to lists.")
 
 import matplotlib.pyplot as plt
 import mplhep as hep
@@ -1004,34 +1088,34 @@ hep.style.use("CMS")
 
 def save_histograms_to_root(hist_data, hist_mc, bin_edges, labels_mc, output_file):
     """
-    Guarda los histogramas en un archivo ROOT.
+    Save histograms to a ROOT file.
 
     Args:
-        hist_data (array): Histograma de datos.
-        hist_mc (list of arrays): Histogramas de Monte Carlo.
-        bin_edges (array): Bordes de los bins.
-        labels_mc (list): Etiquetas de los canales MC.
-        output_file (str): Nombre del archivo ROOT.
+        hist_data (array): Data histogram.
+        hist_mc (list of arrays): Monte Carlo histograms.
+        bin_edges (array): Bin edges.
+        labels_mc (list): Labels for the MC channels.
+        output_file (str): Name of the ROOT file.
     """
-    # Crear el archivo ROOT
+    # Create the ROOT file
     root_file = ROOT.TFile(output_file, "RECREATE")
 
-    # Guardar el histograma de datos
+    # Save the data histogram
     h_data = ROOT.TH1F("Data", "Data", len(bin_edges) - 1, bin_edges)
     for i, value in enumerate(hist_data):
         h_data.SetBinContent(i + 1, value)
     h_data.Write()
 
-    # Guardar los histogramas de MC
+    # Save the MC histograms
     for i, (hist, label) in enumerate(zip(hist_mc, labels_mc)):
         h_mc = ROOT.TH1F(f"MC_{label}", label, len(bin_edges) - 1, bin_edges)
         for j, value in enumerate(hist):
             h_mc.SetBinContent(j + 1, value)
         h_mc.Write()
 
-    # Cerrar el archivo ROOT
+    # Close the ROOT file
     root_file.Close()
-    print(f"Histogramas guardados en: {output_file}")
+    print(f"Histograms saved to: {output_file}")
 
 
 def plot_variable(
@@ -1048,8 +1132,8 @@ def plot_variable(
     ylabel="Events",
     title=None,
     print_percentages=False,
-    output_dir="/eos/project/r/rtu-topanalysis/cmunozdi/DataFramesPKL/2023preBPix/OnlyPreProductionSelection/plots",
-    nth_element=None  # Nuevo argumento
+    output_dir=f"{output_dir}/plots",
+    nth_element=None  # For plotting the nth element of a list-like branch
 ):
     if title is None:
         title = branch
@@ -1062,15 +1146,15 @@ def plot_variable(
 
         for item in data:
             try:
-                # Si es iterable, asumimos que puede contener jets
+                # If it's iterable, we assume it may contain jets
                 for val in item:
                     if isinstance(val, (int, float, np.integer, np.floating)):
                         flat_data.append(val)
             except TypeError:
-                # No iterable, pero puede ser número suelto
+                # Not iterable, but may be a single number
                 if isinstance(item, (int, float, np.integer, np.floating)):
                     flat_data.append(item)
-                # De lo contrario, se ignora
+                # Otherwise, it's ignored
 
         return np.array(flat_data)
     def df_to_numpy_with_weights(df, branch, weight_branch="eventWeight"):
@@ -1091,26 +1175,26 @@ def plot_variable(
                         flat_data.append(jet)
                         flat_weights.append(weight)
             except TypeError:
-                # jets no iterable → ignoramos
+                # jets not iterable → we ignore
                 continue
 
         return np.array(flat_data), np.array(flat_weights)
 
-    # Verificar que todos los bins sean >= 0
+    # Check that all bins are >= 0
     def verify_bins_non_negative(hist, label):
         if np.any(hist < 0):
-            print(f"Advertencia: El histograma '{label}' contiene bins con valores negativos.")
-            print(f"Bins negativos: {hist[hist < 0]}")
-            # Opcional: Ajustar los valores negativos a 0
+            print(f"Warning: The histogram '{label}' contains bins with negative values.")
+            print(f"Negative bins: {hist[hist < 0]}")
+            # Optional: Adjust negative values to 0
             hist[hist < 0] = 0
         return hist
-    # Crear el directorio de salida si no existe
+    # Create the output directory if it doesn't exist
     print("Creating output directories if they do not exist...")
     os.makedirs(output_dir, exist_ok=True)
     output_dir_hist = output_dir.replace("plots", "Histograms")
     os.makedirs(output_dir_hist, exist_ok=True)
 
-    # Crear figura y subplots
+    # Create figure and subplots
     print("Creating figure and subplots...")
     fig = plt.figure(figsize=(8, 12))
     plt.subplots_adjust(left=0.15, right=0.95, top=0.95, bottom=0.1)
@@ -1139,12 +1223,12 @@ def plot_variable(
         transform=ax_main.transAxes
     )
 
-    # Preparar los datos
+    # Prepare the data
     print("Preparing data...")
     bin_edges = np.linspace(xlim[0], xlim[1], bins + 1) if xlim else bins
     bin_centers = (bin_edges[:-1] + bin_edges[1:]) / 2
 
-    # Filtrar el i-ésimo elemento de la rama en los datos
+    # Filter the i-th element of the branch in the data
     print("Filtering data for the specified nth element...")
     if (nth_element is not None) and (nth_element > -1):
         df_data_filtered = df_data[branch].apply(lambda x: x[nth_element] if len(x) > nth_element else np.nan).dropna()
@@ -1155,12 +1239,12 @@ def plot_variable(
         # print("Estoy aquiiiiiiii")
         df_data_filtered = df_data[branch]
 
-    # Histograma de datos
+    # Histogram of data
     print("Creating data histogram...")
     hist_data, _ = np.histogram(df_data_filtered, bins=bin_edges)
     errors_data = np.sqrt(hist_data)
 
-    # Histogramas de MC
+    # Histograms of MC
     print("Creating MC histograms...")
     hist_mc = []
     mc_distributions = []
@@ -1181,13 +1265,13 @@ def plot_variable(
             weights_filtered = weights
 
         hist, _ = np.histogram(mc_filtered, bins=bin_edges, weights=weights_filtered)
-        # Verificar que los valores del histograma sean >= 0
+        # Check that histogram values are >= 0
         # hist = verify_bins_non_negative(hist, label)
         hist_mc.append(hist)
         mc_distributions.append(mc_filtered)
         mc_weights.append(weights_filtered)
 
-    # Guardar los histogramas en un archivo ROOT
+    # Save histograms to a ROOT file
     print("Saving histograms to ROOT file...")
     root_output_file = os.path.join(output_dir_hist, f"{title}.root")
     save_histograms_to_root(hist_data, hist_mc, bin_edges, labels_mc, root_output_file)
@@ -1197,19 +1281,19 @@ def plot_variable(
     # print(f"shape of weights for ttbar: {mc_weights[0].shape}")
     # print("\n")
 
-    # Dibujar los histogramas de MC apilados
+    # Draw stacked MC histograms
     print("Drawing stacked MC histograms...")
     ax_main.hist(
-        [bin_edges[:-1]] * len(hist_mc),  # Usar los bordes de los bins para cada histograma
+        [bin_edges[:-1]] * len(hist_mc),  # Use bin edges for each histogram
         bins=bin_edges,
-        weights=hist_mc,  # Usar los histogramas corregidos
+        weights=hist_mc,  # Use corrected histograms
         stacked=True,
         label=labels_mc,
         color=colors_mc,
         alpha=0.7,
     )
 
-    # Configurar el gráfico principal
+    # Configure the main plot
     print("Configuring main plot...")
     ax_main.errorbar(
         bin_centers,
@@ -1238,13 +1322,13 @@ def plot_variable(
     # if title:
     #     ax_main.set_title(title)
 
-    # Calcular fracciones para el subplot de fracciones
+    # Calculate fractions for the fraction subplot
     print("Calculating fractions for the fraction subplot...")
     total_mc = np.sum(hist_mc, axis=0)
-    total_mc[total_mc == 0] = 1  # Evitar divisiones por cero
+    total_mc[total_mc == 0] = 1  # Avoid division by zero
     fractions = [hist / total_mc for hist in hist_mc]
 
-    # Dibujar las fracciones en el subplot de fracciones (stacked)
+    # Draw fractions in the fraction subplot (stacked)
     print("Drawing fraction subplot...")
     ax_fraction.hist(
         [bin_centers] * len(fractions),
@@ -1259,14 +1343,14 @@ def plot_variable(
     ax_fraction.grid(True, linestyle="--", alpha=0.5)
     ax_fraction.tick_params(axis='x', labelbottom=False)
 
-    # Calcular el ratio Data/MC para el subplot de ratios
+    # Calculate Data/MC ratio for the ratio subplot
     print("Calculating Data/MC ratio for the ratio subplot...")
     total_mc_sum = np.sum(hist_mc, axis=0)
-    # total_mc_sum[total_mc_sum == 0] = -999  # Evitar divisiones por cero
+    # total_mc_sum[total_mc_sum == 0] = -999  # Avoid division by zero
     ratio = np.where(total_mc_sum > 0, (hist_data) / total_mc_sum, np.nan)
     ratio_err = np.where(total_mc_sum > 0, abs(errors_data / total_mc_sum), np.nan)
 
-    # Dibujar el ratio en el subplot de ratios
+    # Draw ratio in the ratio subplot
     print("Drawing ratio subplot...")
     ax_ratio.errorbar(
         bin_centers,
@@ -1281,15 +1365,15 @@ def plot_variable(
     ax_ratio.set_ylim(0.5, 1.5)
     ax_ratio.grid(True, linestyle="--", alpha=0.5)
 
-    # Guardar el gráfico como archivo
+    # Save the plot as a file
     print("Saving the plot...")
     output_file = os.path.join(output_dir, f"{title}.png")
     # hep.cms.label("Private", loc=0, rlabel=f"{luminosity/1000:.2f} fb$^{{-1}}$", ax=ax_main, fontsize=22)
     # plt.tight_layout()
     plt.savefig(output_file)
-    print(f"Gráfico guardado en: {output_file}")
+    print(f"Plot saved to: {output_file}")
 
-    # Cerrar el gráfico para liberar memoria
+    # Close the plot to free memory
     print("Closing the plot to free memory...")
     plt.close()
 
@@ -1517,11 +1601,11 @@ def filter_by_cut(df, cut_id):
         df = df[df['n_bjets'] >= 1]
     if cut_id > 6:
         df = df[df['topjets.pt'] > 350]
-    # if cut_id > 7:
-    #     df = df[
-    #         (df['num_subjets_in_topjet_pt30_eta2p5'] >= 3) &
-    #         (df['topjets.n_subjets'] == 3)
-    #     ]
+    if cut_id > 7:
+        df = df[
+            (df['num_subjets_in_topjet_pt30_eta2p5'] >= 3) &
+            (df['topjets.n_subjets'] == 3)
+        ]
     if cut_id > 8:
         if 'TopPtWeight_NNLOpNLOEW' in df.columns:
             mask = np.isfinite(df['TopPtWeight_NNLOpNLOEW'])
@@ -1553,205 +1637,205 @@ cut_names = {
     11: "btagWeight"
 }
 
-# for cut_id in range(12):
-#     if cut_id == 8: continue  # Skip cut 8 as per instruction
-#     df_data_muon = filter_by_cut(df_data, cut_id)
-#     df_ttbar_muon = filter_by_cut(df_ttbar, cut_id)
-#     df_ttbar_bck_muon = filter_by_cut(df_ttbar_bck, cut_id)
-#     df_singletop_muon = filter_by_cut(df_singletop, cut_id)
-#     df_wjets_muon = filter_by_cut(df_wjets, cut_id)
-#     df_qcdmu_muon = filter_by_cut(df_qcdmu, cut_id)
-#     df_dy_muon = filter_by_cut(df_dy, cut_id)
-#     df_vv_muon = filter_by_cut(df_vv, cut_id)
+for cut_id in range(12):
+    # if cut_id == 8: continue  # Skip cut 8 as per instruction
+    df_data_muon = filter_by_cut(df_data, cut_id)
+    df_ttbar_muon = filter_by_cut(df_ttbar, cut_id)
+    df_ttbar_bck_muon = filter_by_cut(df_ttbar_bck, cut_id)
+    df_singletop_muon = filter_by_cut(df_singletop, cut_id)
+    df_wjets_muon = filter_by_cut(df_wjets, cut_id)
+    df_qcdmu_muon = filter_by_cut(df_qcdmu, cut_id)
+    df_dy_muon = filter_by_cut(df_dy, cut_id)
+    df_vv_muon = filter_by_cut(df_vv, cut_id)
 
-#     #Lepton pt
-#     plot_variable( branch="lepton_trg_pt", dfs_mc=[df_ttbar_muon, df_ttbar_bck_muon, df_singletop_muon, df_wjets_muon, df_qcdmu_muon, df_dy_muon, df_vv_muon][::-1], df_data=df_data_muon,
-#                 labels_mc=[r'$t\overline{t}\rightarrow l\nu2q$', r"$t\overline{t}\rightarrow others$",  "SingleTop", "W+jets", "QCD", "DY", "VV"][::-1], colors_mc=["red", "tomato", "gold", "lime", "deepskyblue", "blue", "indigo"][::-1],
-#                 bins=70, logy=False, xlim=(0, 400), #ylim=(0.75, 1e3),
-#                 xlabel=r'$p_T$ muon [GeV]', title=f'{cut_id}_muon_pt_{cut_names[cut_id]}'
-#                 )
+    #Lepton pt
+    plot_variable( branch="lepton_trg_pt", dfs_mc=[df_ttbar_muon, df_ttbar_bck_muon, df_singletop_muon, df_wjets_muon, df_qcdmu_muon, df_dy_muon, df_vv_muon][::-1], df_data=df_data_muon,
+                labels_mc=[r'$t\overline{t}\rightarrow l\nu2q$', r"$t\overline{t}\rightarrow others$",  "SingleTop", "W+jets", "QCD", "DY", "VV"][::-1], colors_mc=["red", "tomato", "gold", "lime", "deepskyblue", "blue", "indigo"][::-1],
+                bins=70, logy=False, xlim=(0, 400), #ylim=(0.75, 1e3),
+                xlabel=r'$p_T$ muon [GeV]', title=f'{cut_id}_muon_pt_{cut_names[cut_id]}'
+                )
 
-#     #Lepton TuneP pt              
-#     plot_variable( branch="lepton_tuneP_pt", dfs_mc=[df_ttbar_muon, df_ttbar_bck_muon, df_singletop_muon, df_wjets_muon, df_qcdmu_muon, df_dy_muon, df_vv_muon][::-1], df_data=df_data_muon,
-#                 labels_mc=[r'$t\overline{t}\rightarrow l\nu2q$', r"$t\overline{t}\rightarrow others$",  "SingleTop", "W+jets", "QCD", "DY", "VV"][::-1], colors_mc=["red", "tomato", "gold", "lime", "deepskyblue", "blue", "indigo"][::-1],
-#                 bins=70, logy=False, xlim=(0, 400), #ylim=(0.75, 1e3),
-#                 xlabel=r'$p_T$ muon TuneP [GeV]', title=f'{cut_id}_muon_tuneP_pt_{cut_names[cut_id]}'
-#                 )
+    #Lepton TuneP pt              
+    plot_variable( branch="lepton_tuneP_pt", dfs_mc=[df_ttbar_muon, df_ttbar_bck_muon, df_singletop_muon, df_wjets_muon, df_qcdmu_muon, df_dy_muon, df_vv_muon][::-1], df_data=df_data_muon,
+                labels_mc=[r'$t\overline{t}\rightarrow l\nu2q$', r"$t\overline{t}\rightarrow others$",  "SingleTop", "W+jets", "QCD", "DY", "VV"][::-1], colors_mc=["red", "tomato", "gold", "lime", "deepskyblue", "blue", "indigo"][::-1],
+                bins=70, logy=False, xlim=(0, 400), #ylim=(0.75, 1e3),
+                xlabel=r'$p_T$ muon TuneP [GeV]', title=f'{cut_id}_muon_tuneP_pt_{cut_names[cut_id]}'
+                )
 
-#     #Lepton eta
-#     plot_variable(branch="lepton_trg_eta", dfs_mc=[df_ttbar_muon, df_ttbar_bck_muon, df_singletop_muon, df_wjets_muon, df_qcdmu_muon, df_dy_muon, df_vv_muon][::-1], df_data=df_data_muon,
-#                 labels_mc=[r'$t\overline{t}\rightarrow l\nu2q$', r"$t\overline{t}\rightarrow others$",  "SingleTop", "W+jets", "QCD", "DY", "VV"][::-1], colors_mc=["red", "tomato", "gold", "lime", "deepskyblue", "blue", "indigo"][::-1],
-#                 bins=15, xlim=(-3, 3), #ylim=(0, 0.54*1e3), #logy=True,
-#                 xlabel=r'$\eta$ muon', title=f'{cut_id}_muon_eta_{cut_names[cut_id]}'
-#                 )
+    #Lepton eta
+    plot_variable(branch="lepton_trg_eta", dfs_mc=[df_ttbar_muon, df_ttbar_bck_muon, df_singletop_muon, df_wjets_muon, df_qcdmu_muon, df_dy_muon, df_vv_muon][::-1], df_data=df_data_muon,
+                labels_mc=[r'$t\overline{t}\rightarrow l\nu2q$', r"$t\overline{t}\rightarrow others$",  "SingleTop", "W+jets", "QCD", "DY", "VV"][::-1], colors_mc=["red", "tomato", "gold", "lime", "deepskyblue", "blue", "indigo"][::-1],
+                bins=15, xlim=(-3, 3), #ylim=(0, 0.54*1e3), #logy=True,
+                xlabel=r'$\eta$ muon', title=f'{cut_id}_muon_eta_{cut_names[cut_id]}'
+                )
 
-cut_id = 11  # Example cut_id for final selection after all cuts
-df_data_muon = filter_by_cut(df_data, cut_id)
-df_ttbar_muon = filter_by_cut(df_ttbar, cut_id)
-df_ttbar_bck_muon = filter_by_cut(df_ttbar_bck, cut_id)
-df_singletop_muon = filter_by_cut(df_singletop, cut_id)
-df_wjets_muon = filter_by_cut(df_wjets, cut_id)
-df_qcdmu_muon = filter_by_cut(df_qcdmu, cut_id)
-df_dy_muon = filter_by_cut(df_dy, cut_id)
-df_vv_muon = filter_by_cut(df_vv, cut_id)
+# cut_id = 11  # Example cut_id for final selection after all cuts
+# df_data_muon = filter_by_cut(df_data, cut_id)
+# df_ttbar_muon = filter_by_cut(df_ttbar, cut_id)
+# df_ttbar_bck_muon = filter_by_cut(df_ttbar_bck, cut_id)
+# df_singletop_muon = filter_by_cut(df_singletop, cut_id)
+# df_wjets_muon = filter_by_cut(df_wjets, cut_id)
+# df_qcdmu_muon = filter_by_cut(df_qcdmu, cut_id)
+# df_dy_muon = filter_by_cut(df_dy, cut_id)
+# df_vv_muon = filter_by_cut(df_vv, cut_id)
 
 
-#LEPTONS
-#Numer of leptons
-plot_variable( branch="lepton_trg_n_lep", dfs_mc=[df_ttbar_muon, df_ttbar_bck_muon, df_singletop_muon, df_wjets_muon, df_qcdmu_muon, df_dy_muon, df_vv_muon][::-1], df_data=df_data_muon,
-              labels_mc=[r'$t\overline{t}\rightarrow l\nu2q$', r"$t\overline{t}\rightarrow others$",  "SingleTop", "W+jets", "QCD", "DY", "VV"][::-1], colors_mc=["red", "tomato", "gold", "lime", "deepskyblue", "blue", "indigo"][::-1],
-              bins=np.arange(-0.5, 3.5, 1), print_percentages=True, #ylim=(0, 3.5*1e3), #logy=True,)
-              xlabel='Number of muons', title='lepton_trg_n_lep'
-             )
+# #LEPTONS
+# #Numer of leptons
+# plot_variable( branch="lepton_trg_n_lep", dfs_mc=[df_ttbar_muon, df_ttbar_bck_muon, df_singletop_muon, df_wjets_muon, df_qcdmu_muon, df_dy_muon, df_vv_muon][::-1], df_data=df_data_muon,
+#               labels_mc=[r'$t\overline{t}\rightarrow l\nu2q$', r"$t\overline{t}\rightarrow others$",  "SingleTop", "W+jets", "QCD", "DY", "VV"][::-1], colors_mc=["red", "tomato", "gold", "lime", "deepskyblue", "blue", "indigo"][::-1],
+#               bins=np.arange(-0.5, 3.5, 1), print_percentages=True, #ylim=(0, 3.5*1e3), #logy=True,)
+#               xlabel='Number of muons', title='lepton_trg_n_lep'
+#              )
 
-#Lepton pdgId
-plot_variable(branch="lepton_trg_pdgId", dfs_mc=[df_ttbar_muon, df_ttbar_bck_muon, df_singletop_muon, df_wjets_muon, df_qcdmu_muon, df_dy_muon, df_vv_muon][::-1], df_data=df_data_muon,
-              labels_mc=[r'$t\overline{t}\rightarrow l\nu2q$', r"$t\overline{t}\rightarrow others$",  "SingleTop", "W+jets", "QCD", "DY", "VV"][::-1], colors_mc=["red", "tomato", "gold", "lime", "deepskyblue", "blue", "indigo"][::-1],
-              bins=np.arange(-14.5, 14.5, 1),logy=False, #ylim=(0, 1.85*1e3), #logy=True,)
-              xlabel='Lepton pdgID', title='lepton_trg_pdgId'
-             )
+# #Lepton pdgId
+# plot_variable(branch="lepton_trg_pdgId", dfs_mc=[df_ttbar_muon, df_ttbar_bck_muon, df_singletop_muon, df_wjets_muon, df_qcdmu_muon, df_dy_muon, df_vv_muon][::-1], df_data=df_data_muon,
+#               labels_mc=[r'$t\overline{t}\rightarrow l\nu2q$', r"$t\overline{t}\rightarrow others$",  "SingleTop", "W+jets", "QCD", "DY", "VV"][::-1], colors_mc=["red", "tomato", "gold", "lime", "deepskyblue", "blue", "indigo"][::-1],
+#               bins=np.arange(-14.5, 14.5, 1),logy=False, #ylim=(0, 1.85*1e3), #logy=True,)
+#               xlabel='Lepton pdgID', title='lepton_trg_pdgId'
+#              )
 
-#Lepton pt
-plot_variable( branch="lepton_trg_pt", dfs_mc=[df_ttbar_muon, df_ttbar_bck_muon, df_singletop_muon, df_wjets_muon, df_qcdmu_muon, df_dy_muon, df_vv_muon][::-1], df_data=df_data_muon,
-              labels_mc=[r'$t\overline{t}\rightarrow l\nu2q$', r"$t\overline{t}\rightarrow others$",  "SingleTop", "W+jets", "QCD", "DY", "VV"][::-1], colors_mc=["red", "tomato", "gold", "lime", "deepskyblue", "blue", "indigo"][::-1],
-              bins=70, logy=False, xlim=(0, 400), #ylim=(0.75, 1e3),
-              xlabel=r'$p_T$ muon [GeV]', title='lepton_trg_pt'
-             )
+# #Lepton pt
+# plot_variable( branch="lepton_trg_pt", dfs_mc=[df_ttbar_muon, df_ttbar_bck_muon, df_singletop_muon, df_wjets_muon, df_qcdmu_muon, df_dy_muon, df_vv_muon][::-1], df_data=df_data_muon,
+#               labels_mc=[r'$t\overline{t}\rightarrow l\nu2q$', r"$t\overline{t}\rightarrow others$",  "SingleTop", "W+jets", "QCD", "DY", "VV"][::-1], colors_mc=["red", "tomato", "gold", "lime", "deepskyblue", "blue", "indigo"][::-1],
+#               bins=70, logy=False, xlim=(0, 400), #ylim=(0.75, 1e3),
+#               xlabel=r'$p_T$ muon [GeV]', title='lepton_trg_pt'
+#              )
 
-#Lepton TuneP pt              
-plot_variable( branch="lepton_tuneP_pt", dfs_mc=[df_ttbar_muon, df_ttbar_bck_muon, df_singletop_muon, df_wjets_muon, df_qcdmu_muon, df_dy_muon, df_vv_muon][::-1], df_data=df_data_muon,
-              labels_mc=[r'$t\overline{t}\rightarrow l\nu2q$', r"$t\overline{t}\rightarrow others$",  "SingleTop", "W+jets", "QCD", "DY", "VV"][::-1], colors_mc=["red", "tomato", "gold", "lime", "deepskyblue", "blue", "indigo"][::-1],
-              bins=70, logy=False, xlim=(0, 400), #ylim=(0.75, 1e3),
-              xlabel=r'$p_T$ muon TuneP [GeV]', title='lepton_tuneP_pt'
-             )
+# #Lepton TuneP pt              
+# plot_variable( branch="lepton_tuneP_pt", dfs_mc=[df_ttbar_muon, df_ttbar_bck_muon, df_singletop_muon, df_wjets_muon, df_qcdmu_muon, df_dy_muon, df_vv_muon][::-1], df_data=df_data_muon,
+#               labels_mc=[r'$t\overline{t}\rightarrow l\nu2q$', r"$t\overline{t}\rightarrow others$",  "SingleTop", "W+jets", "QCD", "DY", "VV"][::-1], colors_mc=["red", "tomato", "gold", "lime", "deepskyblue", "blue", "indigo"][::-1],
+#               bins=70, logy=False, xlim=(0, 400), #ylim=(0.75, 1e3),
+#               xlabel=r'$p_T$ muon TuneP [GeV]', title='lepton_tuneP_pt'
+#              )
 
-#Lepton eta
-plot_variable(branch="lepton_trg_eta", dfs_mc=[df_ttbar_muon, df_ttbar_bck_muon, df_singletop_muon, df_wjets_muon, df_qcdmu_muon, df_dy_muon, df_vv_muon][::-1], df_data=df_data_muon,
-              labels_mc=[r'$t\overline{t}\rightarrow l\nu2q$', r"$t\overline{t}\rightarrow others$",  "SingleTop", "W+jets", "QCD", "DY", "VV"][::-1], colors_mc=["red", "tomato", "gold", "lime", "deepskyblue", "blue", "indigo"][::-1],
-              bins=15, xlim=(-3, 3), #ylim=(0, 0.54*1e3), #logy=True,
-              xlabel=r'$\eta$ muon', title='lepton_trg_eta'
-             )
+# #Lepton eta
+# plot_variable(branch="lepton_trg_eta", dfs_mc=[df_ttbar_muon, df_ttbar_bck_muon, df_singletop_muon, df_wjets_muon, df_qcdmu_muon, df_dy_muon, df_vv_muon][::-1], df_data=df_data_muon,
+#               labels_mc=[r'$t\overline{t}\rightarrow l\nu2q$', r"$t\overline{t}\rightarrow others$",  "SingleTop", "W+jets", "QCD", "DY", "VV"][::-1], colors_mc=["red", "tomato", "gold", "lime", "deepskyblue", "blue", "indigo"][::-1],
+#               bins=15, xlim=(-3, 3), #ylim=(0, 0.54*1e3), #logy=True,
+#               xlabel=r'$\eta$ muon', title='lepton_trg_eta'
+#              )
 
-#Lepton dR to jet
-plot_variable(branch="lepton_trg_dR", dfs_mc=[df_ttbar_muon, df_ttbar_bck_muon, df_singletop_muon, df_wjets_muon, df_qcdmu_muon, df_dy_muon, df_vv_muon][::-1], df_data=df_data_muon,
-              labels_mc=[r'$t\overline{t}\rightarrow l\nu2q$', r"$t\overline{t}\rightarrow others$",  "SingleTop", "W+jets", "QCD", "DY", "VV"][::-1], colors_mc=["red", "tomato", "gold", "lime", "deepskyblue", "blue", "indigo"][::-1],
-              bins=20, xlabel=r"$\Delta R$ (muon, closest AK4 jet)", xlim=(0, 4), logy=False, #ylim=(0, 0.8*1e3),
-              title='lepton_trg_dR'
-             )
+# #Lepton dR to jet
+# plot_variable(branch="lepton_trg_dR", dfs_mc=[df_ttbar_muon, df_ttbar_bck_muon, df_singletop_muon, df_wjets_muon, df_qcdmu_muon, df_dy_muon, df_vv_muon][::-1], df_data=df_data_muon,
+#               labels_mc=[r'$t\overline{t}\rightarrow l\nu2q$', r"$t\overline{t}\rightarrow others$",  "SingleTop", "W+jets", "QCD", "DY", "VV"][::-1], colors_mc=["red", "tomato", "gold", "lime", "deepskyblue", "blue", "indigo"][::-1],
+#               bins=20, xlabel=r"$\Delta R$ (muon, closest AK4 jet)", xlim=(0, 4), logy=False, #ylim=(0, 0.8*1e3),
+#               title='lepton_trg_dR'
+#              )
 
-#Lepton ptrel to jet
-plot_variable(branch="lepton_trg_ptrel", dfs_mc=[df_ttbar_muon, df_ttbar_bck_muon, df_singletop_muon, df_wjets_muon, df_qcdmu_muon, df_dy_muon, df_vv_muon][::-1], df_data=df_data_muon,
-              labels_mc=[r'$t\overline{t}\rightarrow l\nu2q$', r"$t\overline{t}\rightarrow others$",  "SingleTop", "W+jets", "QCD", "DY", "VV"][::-1], colors_mc=["red", "tomato", "gold", "lime", "deepskyblue", "blue", "indigo"][::-1],
-              bins=20, xlabel=r"$p_T^{rel}$ (muon, closest AK4 jet) [GeV]", xlim=(0, 200), logy = False, #ylim=(0, 0.35*1e3),
-              title='lepton_trg_ptrel'
-             )
+# #Lepton ptrel to jet
+# plot_variable(branch="lepton_trg_ptrel", dfs_mc=[df_ttbar_muon, df_ttbar_bck_muon, df_singletop_muon, df_wjets_muon, df_qcdmu_muon, df_dy_muon, df_vv_muon][::-1], df_data=df_data_muon,
+#               labels_mc=[r'$t\overline{t}\rightarrow l\nu2q$', r"$t\overline{t}\rightarrow others$",  "SingleTop", "W+jets", "QCD", "DY", "VV"][::-1], colors_mc=["red", "tomato", "gold", "lime", "deepskyblue", "blue", "indigo"][::-1],
+#               bins=20, xlabel=r"$p_T^{rel}$ (muon, closest AK4 jet) [GeV]", xlim=(0, 200), logy = False, #ylim=(0, 0.35*1e3),
+#               title='lepton_trg_ptrel'
+#              )
 
-#XCONE JETS
-#Mass top hadronic decay
-plot_variable(branch="topjets.mass", dfs_mc=[df_ttbar_muon, df_ttbar_bck_muon, df_singletop_muon, df_wjets_muon, df_qcdmu_muon, df_dy_muon, df_vv_muon][::-1], df_data=df_data_muon,
-             labels_mc=[r'$t\overline{t}\rightarrow l\nu2q$', r"$t\overline{t}\rightarrow others$",  "SingleTop", "W+jets", "QCD", "DY", "VV"][::-1], colors_mc=["red", "tomato", "gold", "lime", "deepskyblue", "blue", "indigo"][::-1],
-             bins=20, xlim=(80, 320), logy=False, #ylim=(0, 0.64*1e3),
-             title='topjets_mass', xlabel=r'$m_{top-jet}$ [GeV]'
-             )
+# #XCONE JETS
+# #Mass top hadronic decay
+# plot_variable(branch="topjets.mass", dfs_mc=[df_ttbar_muon, df_ttbar_bck_muon, df_singletop_muon, df_wjets_muon, df_qcdmu_muon, df_dy_muon, df_vv_muon][::-1], df_data=df_data_muon,
+#              labels_mc=[r'$t\overline{t}\rightarrow l\nu2q$', r"$t\overline{t}\rightarrow others$",  "SingleTop", "W+jets", "QCD", "DY", "VV"][::-1], colors_mc=["red", "tomato", "gold", "lime", "deepskyblue", "blue", "indigo"][::-1],
+#              bins=20, xlim=(80, 320), logy=False, #ylim=(0, 0.64*1e3),
+#              title='topjets_mass', xlabel=r'$m_{top-jet}$ [GeV]'
+#              )
 
-#Mass W hadronic decay
-plot_variable(branch="topjets.mass_W", dfs_mc=[df_ttbar_muon, df_ttbar_bck_muon, df_singletop_muon, df_wjets_muon, df_qcdmu_muon, df_dy_muon, df_vv_muon][::-1], df_data=df_data_muon,
-             labels_mc=[r'$t\overline{t}\rightarrow l\nu2q$', r"$t\overline{t}\rightarrow others$",  "SingleTop", "W+jets", "QCD", "DY", "VV"][::-1], colors_mc=["red", "tomato", "gold", "lime", "deepskyblue", "blue", "indigo"][::-1],
-             bins=20, xlim=(40, 120), logy=False, #ylim=(0, 0.6*1e3),
-             title='topjets_Wmass', xlabel=r'$m_{W-jet}$ [GeV]'
-             )
+# #Mass W hadronic decay
+# plot_variable(branch="topjets.mass_W", dfs_mc=[df_ttbar_muon, df_ttbar_bck_muon, df_singletop_muon, df_wjets_muon, df_qcdmu_muon, df_dy_muon, df_vv_muon][::-1], df_data=df_data_muon,
+#              labels_mc=[r'$t\overline{t}\rightarrow l\nu2q$', r"$t\overline{t}\rightarrow others$",  "SingleTop", "W+jets", "QCD", "DY", "VV"][::-1], colors_mc=["red", "tomato", "gold", "lime", "deepskyblue", "blue", "indigo"][::-1],
+#              bins=20, xlim=(40, 120), logy=False, #ylim=(0, 0.6*1e3),
+#              title='topjets_Wmass', xlabel=r'$m_{W-jet}$ [GeV]'
+#              )
 
-#MET
-#Missing transverse energy pt
-plot_variable(branch="PuppiMET_pt", dfs_mc=[df_ttbar_muon, df_ttbar_bck_muon, df_singletop_muon, df_wjets_muon, df_qcdmu_muon, df_dy_muon, df_vv_muon][::-1], df_data=df_data_muon,
-              labels_mc=[r'$t\overline{t}\rightarrow l\nu2q$', r"$t\overline{t}\rightarrow others$",  "SingleTop", "W+jets", "QCD", "DY", "VV"][::-1], colors_mc=["red", "tomato", "gold", "lime", "deepskyblue", "blue", "indigo"][::-1],
-              bins=25, xlim=(0, 600), logy=False, #ylim=(0.75, 1e3),
-              xlabel=r'$p_T^{MET}$ [GeV]', title='PuppiMET_pt'
-              )
+# #MET
+# #Missing transverse energy pt
+# plot_variable(branch="PuppiMET_pt", dfs_mc=[df_ttbar_muon, df_ttbar_bck_muon, df_singletop_muon, df_wjets_muon, df_qcdmu_muon, df_dy_muon, df_vv_muon][::-1], df_data=df_data_muon,
+#               labels_mc=[r'$t\overline{t}\rightarrow l\nu2q$', r"$t\overline{t}\rightarrow others$",  "SingleTop", "W+jets", "QCD", "DY", "VV"][::-1], colors_mc=["red", "tomato", "gold", "lime", "deepskyblue", "blue", "indigo"][::-1],
+#               bins=25, xlim=(0, 600), logy=False, #ylim=(0.75, 1e3),
+#               xlabel=r'$p_T^{MET}$ [GeV]', title='PuppiMET_pt'
+#               )
 
-#BJETS
-#Numer of bjets
-plot_variable( branch="n_bjets", dfs_mc=[df_ttbar_muon, df_ttbar_bck_muon, df_singletop_muon, df_wjets_muon, df_qcdmu_muon, df_dy_muon, df_vv_muon][::-1], df_data=df_data_muon,
-              labels_mc=[r'$t\overline{t}\rightarrow l\nu2q$', r"$t\overline{t}\rightarrow others$",  "SingleTop", "W+jets", "QCD", "DY", "VV"][::-1], colors_mc=["red", "tomato", "gold", "lime", "deepskyblue", "blue", "indigo"][::-1],
-              bins=np.arange(-0.5, 6.5, 1), logy=False, #ylim=(0.7, 2.5*1e3), #logy=True,)
-              xlabel='Number of b-jets', title='n_bjets'
-             )
+# #BJETS
+# #Numer of bjets
+# plot_variable( branch="n_bjets", dfs_mc=[df_ttbar_muon, df_ttbar_bck_muon, df_singletop_muon, df_wjets_muon, df_qcdmu_muon, df_dy_muon, df_vv_muon][::-1], df_data=df_data_muon,
+#               labels_mc=[r'$t\overline{t}\rightarrow l\nu2q$', r"$t\overline{t}\rightarrow others$",  "SingleTop", "W+jets", "QCD", "DY", "VV"][::-1], colors_mc=["red", "tomato", "gold", "lime", "deepskyblue", "blue", "indigo"][::-1],
+#               bins=np.arange(-0.5, 6.5, 1), logy=False, #ylim=(0.7, 2.5*1e3), #logy=True,)
+#               xlabel='Number of b-jets', title='n_bjets'
+#              )
 
-# #bjets btag discriminator
-plot_variable(branch="bjet_btag", dfs_mc=[df_ttbar_muon, df_ttbar_bck_muon, df_singletop_muon, df_wjets_muon, df_qcdmu_muon, df_dy_muon, df_vv_muon][::-1], df_data=df_data_muon,
-              labels_mc=[r'$t\overline{t}\rightarrow l\nu2q$', r"$t\overline{t}\rightarrow others$",  "SingleTop", "W+jets", "QCD", "DY", "VV"][::-1], colors_mc=["red", "tomato", "gold", "lime", "deepskyblue", "blue", "indigo"][::-1], nth_element=-1,
-              bins=20, xlim=(0., 1.),logy=False, #ylim=(0.95, 4*1e3), #logy=True,)
-              xlabel='DeepBTag b-jets', title='bjet_btag'
-             )
+# # #bjets btag discriminator
+# plot_variable(branch="bjet_btag", dfs_mc=[df_ttbar_muon, df_ttbar_bck_muon, df_singletop_muon, df_wjets_muon, df_qcdmu_muon, df_dy_muon, df_vv_muon][::-1], df_data=df_data_muon,
+#               labels_mc=[r'$t\overline{t}\rightarrow l\nu2q$', r"$t\overline{t}\rightarrow others$",  "SingleTop", "W+jets", "QCD", "DY", "VV"][::-1], colors_mc=["red", "tomato", "gold", "lime", "deepskyblue", "blue", "indigo"][::-1], nth_element=-1,
+#               bins=20, xlim=(0., 1.),logy=False, #ylim=(0.95, 4*1e3), #logy=True,)
+#               xlabel='DeepBTag b-jets', title='bjet_btag'
+#              )
 
-#bjets pt
-plot_variable( branch="bjet_pt", dfs_mc=[df_ttbar_muon, df_ttbar_bck_muon, df_singletop_muon, df_wjets_muon, df_qcdmu_muon, df_dy_muon, df_vv_muon][::-1], df_data=df_data_muon,
-              labels_mc=[r'$t\overline{t}\rightarrow l\nu2q$', r"$t\overline{t}\rightarrow others$",  "SingleTop", "W+jets", "QCD", "DY", "VV"][::-1], colors_mc=["red", "tomato", "gold", "lime", "deepskyblue", "blue", "indigo"][::-1], nth_element=-1,
-              bins=20, logy=False, xlim=(0, 600), #ylim=(0.75, 4*1e3),
-              xlabel=r'$p_T$ b-jets [GeV]', title='bjet_pt'
-             )
+# #bjets pt
+# plot_variable( branch="bjet_pt", dfs_mc=[df_ttbar_muon, df_ttbar_bck_muon, df_singletop_muon, df_wjets_muon, df_qcdmu_muon, df_dy_muon, df_vv_muon][::-1], df_data=df_data_muon,
+#               labels_mc=[r'$t\overline{t}\rightarrow l\nu2q$', r"$t\overline{t}\rightarrow others$",  "SingleTop", "W+jets", "QCD", "DY", "VV"][::-1], colors_mc=["red", "tomato", "gold", "lime", "deepskyblue", "blue", "indigo"][::-1], nth_element=-1,
+#               bins=20, logy=False, xlim=(0, 600), #ylim=(0.75, 4*1e3),
+#               xlabel=r'$p_T$ b-jets [GeV]', title='bjet_pt'
+#              )
 
-#bjets eta
-plot_variable(branch="bjet_eta", dfs_mc=[df_ttbar_muon, df_ttbar_bck_muon, df_singletop_muon, df_wjets_muon, df_qcdmu_muon, df_dy_muon, df_vv_muon][::-1], df_data=df_data_muon,
-              labels_mc=[r'$t\overline{t}\rightarrow l\nu2q$', r"$t\overline{t}\rightarrow others$",  "SingleTop", "W+jets", "QCD", "DY", "VV"][::-1], colors_mc=["red", "tomato", "gold", "lime", "deepskyblue", "blue", "indigo"][::-1], nth_element=-1,
-              bins=15, xlim=(-3, 3), #ylim=(0, 0.9*1e3), #logy=True,
-              xlabel=r'$\eta$ b-jets', title='bjet_eta'
-             )
+# #bjets eta
+# plot_variable(branch="bjet_eta", dfs_mc=[df_ttbar_muon, df_ttbar_bck_muon, df_singletop_muon, df_wjets_muon, df_qcdmu_muon, df_dy_muon, df_vv_muon][::-1], df_data=df_data_muon,
+#               labels_mc=[r'$t\overline{t}\rightarrow l\nu2q$', r"$t\overline{t}\rightarrow others$",  "SingleTop", "W+jets", "QCD", "DY", "VV"][::-1], colors_mc=["red", "tomato", "gold", "lime", "deepskyblue", "blue", "indigo"][::-1], nth_element=-1,
+#               bins=15, xlim=(-3, 3), #ylim=(0, 0.9*1e3), #logy=True,
+#               xlabel=r'$\eta$ b-jets', title='bjet_eta'
+#              )
 
-#LEADDING BJET
-#Leading btag discriminator
-plot_variable(branch="bjet_btag", dfs_mc=[df_ttbar_muon, df_ttbar_bck_muon, df_singletop_muon, df_wjets_muon, df_qcdmu_muon, df_dy_muon, df_vv_muon][::-1], df_data=df_data_muon,
-              labels_mc=[r'$t\overline{t}\rightarrow l\nu2q$', r"$t\overline{t}\rightarrow others$",  "SingleTop", "W+jets", "QCD", "DY", "VV"][::-1], colors_mc=["red", "tomato", "gold", "lime", "deepskyblue", "blue", "indigo"][::-1], nth_element=0,
-              bins=20, xlim=(0., 1.),logy=False, #ylim=(0.95, 4.85*1e3), #logy=True,)
-              xlabel='DeepBTag leading b-jet', title='bjet_btag_leading'
-             )
+# #LEADDING BJET
+# #Leading btag discriminator
+# plot_variable(branch="bjet_btag", dfs_mc=[df_ttbar_muon, df_ttbar_bck_muon, df_singletop_muon, df_wjets_muon, df_qcdmu_muon, df_dy_muon, df_vv_muon][::-1], df_data=df_data_muon,
+#               labels_mc=[r'$t\overline{t}\rightarrow l\nu2q$', r"$t\overline{t}\rightarrow others$",  "SingleTop", "W+jets", "QCD", "DY", "VV"][::-1], colors_mc=["red", "tomato", "gold", "lime", "deepskyblue", "blue", "indigo"][::-1], nth_element=0,
+#               bins=20, xlim=(0., 1.),logy=False, #ylim=(0.95, 4.85*1e3), #logy=True,)
+#               xlabel='DeepBTag leading b-jet', title='bjet_btag_leading'
+#              )
 
-#Leading bjet pt
-plot_variable( branch="bjet_pt", dfs_mc=[df_ttbar_muon, df_ttbar_bck_muon, df_singletop_muon, df_wjets_muon, df_qcdmu_muon, df_dy_muon, df_vv_muon][::-1], df_data=df_data_muon,
-              labels_mc=[r'$t\overline{t}\rightarrow l\nu2q$', r"$t\overline{t}\rightarrow others$",  "SingleTop", "W+jets", "QCD", "DY", "VV"][::-1], colors_mc=["red", "tomato", "gold", "lime", "deepskyblue", "blue", "indigo"][::-1], nth_element=0,
-              bins=20, logy=False, xlim=(0, 600), #ylim=(0.75, 4*1e3),
-              xlabel=r'$p_T$ leading b-jet [GeV]', title='bjet_pt_leading'
-             )
+# #Leading bjet pt
+# plot_variable( branch="bjet_pt", dfs_mc=[df_ttbar_muon, df_ttbar_bck_muon, df_singletop_muon, df_wjets_muon, df_qcdmu_muon, df_dy_muon, df_vv_muon][::-1], df_data=df_data_muon,
+#               labels_mc=[r'$t\overline{t}\rightarrow l\nu2q$', r"$t\overline{t}\rightarrow others$",  "SingleTop", "W+jets", "QCD", "DY", "VV"][::-1], colors_mc=["red", "tomato", "gold", "lime", "deepskyblue", "blue", "indigo"][::-1], nth_element=0,
+#               bins=20, logy=False, xlim=(0, 600), #ylim=(0.75, 4*1e3),
+#               xlabel=r'$p_T$ leading b-jet [GeV]', title='bjet_pt_leading'
+#              )
 
-#Leading bjet eta
-plot_variable(branch="bjet_eta", dfs_mc=[df_ttbar_muon, df_ttbar_bck_muon, df_singletop_muon, df_wjets_muon, df_qcdmu_muon, df_dy_muon, df_vv_muon][::-1], df_data=df_data_muon,
-              labels_mc=[r'$t\overline{t}\rightarrow l\nu2q$', r"$t\overline{t}\rightarrow others$",  "SingleTop", "W+jets", "QCD", "DY", "VV"][::-1], colors_mc=["red", "tomato", "gold", "lime", "deepskyblue", "blue", "indigo"][::-1], nth_element=0,
-              bins=15, xlim=(-3, 3), #ylim=(0, 6.6*1e2), #logy=True,
-              xlabel=r'$\eta$ leading b-jet', title='bjet_eta_leading'
-             )
+# #Leading bjet eta
+# plot_variable(branch="bjet_eta", dfs_mc=[df_ttbar_muon, df_ttbar_bck_muon, df_singletop_muon, df_wjets_muon, df_qcdmu_muon, df_dy_muon, df_vv_muon][::-1], df_data=df_data_muon,
+#               labels_mc=[r'$t\overline{t}\rightarrow l\nu2q$', r"$t\overline{t}\rightarrow others$",  "SingleTop", "W+jets", "QCD", "DY", "VV"][::-1], colors_mc=["red", "tomato", "gold", "lime", "deepskyblue", "blue", "indigo"][::-1], nth_element=0,
+#               bins=15, xlim=(-3, 3), #ylim=(0, 6.6*1e2), #logy=True,
+#               xlabel=r'$\eta$ leading b-jet', title='bjet_eta_leading'
+#              )
 
-#SUBLEADING BJET
-#Subleading btag discriminator
-plot_variable(branch="bjet_btag", dfs_mc=[df_ttbar_muon, df_ttbar_bck_muon, df_singletop_muon, df_wjets_muon, df_qcdmu_muon, df_dy_muon, df_vv_muon][::-1], df_data=df_data_muon,
-              labels_mc=[r'$t\overline{t}\rightarrow l\nu2q$', r"$t\overline{t}\rightarrow others$",  "SingleTop", "W+jets", "QCD", "DY", "VV"][::-1], colors_mc=["red", "tomato", "gold", "lime", "deepskyblue", "blue", "indigo"][::-1], nth_element=1,
-              bins=20, xlim=(0., 1.),logy=False, #ylim=(0.95, 1*1e3), #logy=True,)
-              xlabel='DeepBTag subleading b-jet', title='bjet_btag_subleading'
-             )
+# #SUBLEADING BJET
+# #Subleading btag discriminator
+# plot_variable(branch="bjet_btag", dfs_mc=[df_ttbar_muon, df_ttbar_bck_muon, df_singletop_muon, df_wjets_muon, df_qcdmu_muon, df_dy_muon, df_vv_muon][::-1], df_data=df_data_muon,
+#               labels_mc=[r'$t\overline{t}\rightarrow l\nu2q$', r"$t\overline{t}\rightarrow others$",  "SingleTop", "W+jets", "QCD", "DY", "VV"][::-1], colors_mc=["red", "tomato", "gold", "lime", "deepskyblue", "blue", "indigo"][::-1], nth_element=1,
+#               bins=20, xlim=(0., 1.),logy=False, #ylim=(0.95, 1*1e3), #logy=True,)
+#               xlabel='DeepBTag subleading b-jet', title='bjet_btag_subleading'
+#              )
 
-#Subleading bjet pt
-plot_variable( branch="bjet_pt", dfs_mc=[df_ttbar_muon, df_ttbar_bck_muon, df_singletop_muon, df_wjets_muon, df_qcdmu_muon, df_dy_muon, df_vv_muon][::-1], df_data=df_data_muon,
-              labels_mc=[r'$t\overline{t}\rightarrow l\nu2q$', r"$t\overline{t}\rightarrow others$",  "SingleTop", "W+jets", "QCD", "DY", "VV"][::-1], colors_mc=["red", "tomato", "gold", "lime", "deepskyblue", "blue", "indigo"][::-1], nth_element=1,
-              bins=20, logy=False, xlim=(0, 300), #ylim=(0.75, 1*1e3),
-              xlabel=r'$p_T$ subleading b-jet [GeV]', title='bjet_pt_subleading'
-             )
+# #Subleading bjet pt
+# plot_variable( branch="bjet_pt", dfs_mc=[df_ttbar_muon, df_ttbar_bck_muon, df_singletop_muon, df_wjets_muon, df_qcdmu_muon, df_dy_muon, df_vv_muon][::-1], df_data=df_data_muon,
+#               labels_mc=[r'$t\overline{t}\rightarrow l\nu2q$', r"$t\overline{t}\rightarrow others$",  "SingleTop", "W+jets", "QCD", "DY", "VV"][::-1], colors_mc=["red", "tomato", "gold", "lime", "deepskyblue", "blue", "indigo"][::-1], nth_element=1,
+#               bins=20, logy=False, xlim=(0, 300), #ylim=(0.75, 1*1e3),
+#               xlabel=r'$p_T$ subleading b-jet [GeV]', title='bjet_pt_subleading'
+#              )
 
-#Subleading bjet eta
-plot_variable(branch="bjet_eta", dfs_mc=[df_ttbar_muon, df_ttbar_bck_muon, df_singletop_muon, df_wjets_muon, df_qcdmu_muon, df_dy_muon, df_vv_muon][::-1], df_data=df_data_muon,
-              labels_mc=[r'$t\overline{t}\rightarrow l\nu2q$', r"$t\overline{t}\rightarrow others$",  "SingleTop", "W+jets", "QCD", "DY", "VV"][::-1], colors_mc=["red", "tomato", "gold", "lime", "deepskyblue", "blue", "indigo"][::-1], nth_element=1,
-              bins=15, xlim=(-3, 3), #ylim=(0, 2.05*1e2), #logy=True,
-              xlabel=r'$\eta$ subleading b-jet', title='bjet_eta_subleading'
-             )
+# #Subleading bjet eta
+# plot_variable(branch="bjet_eta", dfs_mc=[df_ttbar_muon, df_ttbar_bck_muon, df_singletop_muon, df_wjets_muon, df_qcdmu_muon, df_dy_muon, df_vv_muon][::-1], df_data=df_data_muon,
+#               labels_mc=[r'$t\overline{t}\rightarrow l\nu2q$', r"$t\overline{t}\rightarrow others$",  "SingleTop", "W+jets", "QCD", "DY", "VV"][::-1], colors_mc=["red", "tomato", "gold", "lime", "deepskyblue", "blue", "indigo"][::-1], nth_element=1,
+#               bins=15, xlim=(-3, 3), #ylim=(0, 2.05*1e2), #logy=True,
+#               xlabel=r'$\eta$ subleading b-jet', title='bjet_eta_subleading'
+#              )
 
-#AK4 JETS
-#AK4 jets pt
-plot_variable( branch="Jet_pt", dfs_mc=[df_ttbar_muon, df_ttbar_bck_muon, df_singletop_muon, df_wjets_muon, df_qcdmu_muon, df_dy_muon, df_vv_muon][::-1], df_data=df_data_muon,
-              labels_mc=[r'$t\overline{t}\rightarrow l\nu2q$', r"$t\overline{t}\rightarrow others$",  "SingleTop", "W+jets", "QCD", "DY", "VV"][::-1], colors_mc=["red", "tomato", "gold", "lime", "deepskyblue", "blue", "indigo"][::-1], nth_element=-1,
-              bins=20, xlim=(0, 800), logy=False, #ylim=(0.7, 1.1*1e4),
-              xlabel=r'$p_T$ AK4 jets [GeV]', title='AK4Jet_pt'
-             )
+# #AK4 JETS
+# #AK4 jets pt
+# plot_variable( branch="Jet_pt", dfs_mc=[df_ttbar_muon, df_ttbar_bck_muon, df_singletop_muon, df_wjets_muon, df_qcdmu_muon, df_dy_muon, df_vv_muon][::-1], df_data=df_data_muon,
+#               labels_mc=[r'$t\overline{t}\rightarrow l\nu2q$', r"$t\overline{t}\rightarrow others$",  "SingleTop", "W+jets", "QCD", "DY", "VV"][::-1], colors_mc=["red", "tomato", "gold", "lime", "deepskyblue", "blue", "indigo"][::-1], nth_element=-1,
+#               bins=20, xlim=(0, 800), logy=False, #ylim=(0.7, 1.1*1e4),
+#               xlabel=r'$p_T$ AK4 jets [GeV]', title='AK4Jet_pt'
+#              )
 
-plot_variable( branch="fatjets.pt", dfs_mc=[df_ttbar_muon, df_ttbar_bck_muon, df_singletop_muon, df_wjets_muon, df_qcdmu_muon, df_dy_muon, df_vv_muon][::-1], df_data=df_data_muon,
-              labels_mc=[r'$t\overline{t}\rightarrow l\nu2q$', r"$t\overline{t}\rightarrow others$",  "SingleTop", "W+jets", "QCD", "DY", "VV"][::-1], colors_mc=["red", "tomato", "gold", "lime", "deepskyblue", "blue", "indigo"][::-1], nth_element=-1,
-              bins=20, xlim=(0, 800), logy=False, #ylim=(0.7, 1.1*1e4),
-              xlabel=r'$p_T$ Fat-jets [GeV]', title='fatjets_pt'
-             )  
+# plot_variable( branch="fatjets.pt", dfs_mc=[df_ttbar_muon, df_ttbar_bck_muon, df_singletop_muon, df_wjets_muon, df_qcdmu_muon, df_dy_muon, df_vv_muon][::-1], df_data=df_data_muon,
+#               labels_mc=[r'$t\overline{t}\rightarrow l\nu2q$', r"$t\overline{t}\rightarrow others$",  "SingleTop", "W+jets", "QCD", "DY", "VV"][::-1], colors_mc=["red", "tomato", "gold", "lime", "deepskyblue", "blue", "indigo"][::-1], nth_element=-1,
+#               bins=20, xlim=(0, 800), logy=False, #ylim=(0.7, 1.1*1e4),
+#               xlabel=r'$p_T$ Fat-jets [GeV]', title='fatjets_pt'
+#              )  

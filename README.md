@@ -111,5 +111,5 @@ mergeJSON.py --output DATA_samples/data_2023_Muon/combinedMuon2023processLumis.j
 
 3. Getting Luminosity:
 ```bash
-brilcalc lumi --normtag /cvmfs/cms-bril.cern.ch/cms-lumi-pog/Normtags/normtag_BRIL.json -u /fb -i DATA_samples/data_2023_Muon/combinedMuon2023processLumis.json
+brilcalc lumi --normtag /cvmfs/cms-bril.cern.ch/cms-lumi-pog/Normtags/normtag_PHYSICS.json -u /fb -i DATA_samples/data_2023_Muon/combinedMuon2023processLumis.json
 ```

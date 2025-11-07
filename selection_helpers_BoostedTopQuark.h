@@ -47,21 +47,35 @@ extern std::unique_ptr<correction::CorrectionSet> cset;
 extern std::unique_ptr<correction::CorrectionSet> sf_btagset;
 extern std::unique_ptr<correction::CorrectionSet> eff_btagset;
 
+// NEW: global tags for which correction to pick inside the JSON. Change values as needed in selection_helpers_BoostedTopQuark.cpp
+extern std::string g_jec_tag;  //= "Summer23Prompt23_V2_MC";
+extern std::string g_lvl_tag;  //= "L1L2L3Res";
+extern std::string g_algo_tag; // = "AK4PFPuppi";
+
+extern bool g_isMC;
+
 // Inicializar `cset` al comienzo del header
-inline void initializeCorrectionSet() {
-    fs::path fname_ak4_2023 = "./jet_jerc.json.gz";
-    // fs::path fname_btag_2023 = "/cvmfs/cms.cern.ch/rsync/cms-nanoAOD/jsonpog-integration/POG/BTV/2023_Summer23/btagging.json.gz";
+inline void initializeCorrectionSet(bool isMC = true, const std::string &jec_override = "") {
+    // choose which key to use inside the single JSON (can be overridden)
+    std::cout << "Initializing JEC CorrectionSet with isMC = " << isMC << " and jec_override = '" << jec_override << "'" << std::endl;
+
+    g_isMC = isMC;
+    if (!jec_override.empty()) {
+        g_jec_tag = jec_override;
+    } else {
+        g_jec_tag = g_isMC ? "Summer22EE_22Sep2023_V3_MC" : "Summer22EE_22Sep2023_RunG_V3_DATA";
+    }
+    // lvl/algo kept as defaults but can be changed from Python if desired:
+    std::cout << "Using JEC tag: " << g_jec_tag << std::endl;
+    g_lvl_tag  = "L1L2L3Res";
+    g_algo_tag = "AK4PFPuppi";
+
+    fs::path fname_ak4_2023 = "/cvmfs/cms-griddata.cern.ch/cat/metadata/JME/Run3-22EFGSep23-Summer22EE-NanoAODv12/latest/jet_jerc.json.gz"; //"./jet_jerc.json.gz";
     if (!fs::exists(fname_ak4_2023)) {
         throw std::runtime_error("El archivo de corrección no existe: " + fname_ak4_2023.string());
     }
     cset = correction::CorrectionSet::from_file(fname_ak4_2023.string());
     std::cout << "Archivo de corrección cargado exitosamente: " << fname_ak4_2023.string() << std::endl;
-    // if (!fs::exists(fname_btag_2023)) {
-    //     throw std::runtime_error("El archivo de corrección de b-tagging no existe: " + fname_btag_2023.string());
-    // }
-    // cset_btag = correction::CorrectionSet::from_file(fname_btag_2023.string());
-    // std::cout << "Archivo de corrección de b-tagging cargado exitosamente: " << fname_btag_2023.string() << std::endl;
-    // std::cout << "Corrections set initialized." << std::endl;
 }
 
 // Inicializar `cset` al comienzo del header
@@ -241,10 +255,9 @@ struct Lepton{
     ClassDef(Lepton, 1) // ROOT necesita esta macro para generar diccionarios
 };
 
-inline double singleLevelEnergyCorr(const map<string, correction::Variable::Type>& example,
-                                    const unique_ptr<correction::CorrectionSet>& cset,
-                                    string jec, string lvl, string algo) {
-    string key = jec + '_' + lvl + '_' + algo;
+inline double singleLevelEnergyCorr(const map<string, correction::Variable::Type>& example) {
+    string key = g_jec_tag + '_' + g_lvl_tag + '_' + g_algo_tag;
+    // string key = jec + '_' + lvl + '_' + algo;
     // std::cout << "JSON access to key: " << key << std::endl;
 
     // correction::Correction::Ref sf = cset->at(key);
@@ -282,7 +295,7 @@ inline float compute_ptrel_new(const TLorentzVector& muon,
                                 float jet_rawFactor,
                                 double jet_Area,
                                 float rho_PU,
-                                const unique_ptr<correction::CorrectionSet>& cset) {
+                                float run=-1.) {
     // Raw Jet
     TLorentzVector jet_raw = jet_corr * (1.0 - jet_rawFactor);
     // std::cout << "Jet_raw: Pt = " << jet_raw.Pt() << ", jet_corr: Pt = " << jet_corr.Pt() << ", jet_rawFactor = " << jet_rawFactor << std::endl;
@@ -302,15 +315,35 @@ inline float compute_ptrel_new(const TLorentzVector& muon,
         {"Rho", rho_PU}
     };
 
+    if(!g_isMC){
+        // std::cout << "Data event: adding run number to JEC inputs." << std::endl;
+        if (run < 0) {
+            std::cerr << "compute_ptrel_new: run not provided for DATA but required by correction. Using run=0 as fallback." << std::endl;
+            jet_raw_map["run"] = 0.;
+        } else {
+            // std::cout << "compute_ptrel_new: using run=" << run << " for DATA correction." << std::endl;
+            jet_raw_map["run"] = run;
+        }
+    }
+
     // Then the conditions to apply the correction
-    string jec = "Summer23Prompt23_V2_MC",
-           lvl = "L1L2L3Res",
-           algo = "AK4PFPuppi";
+    // string jec = "Summer23Prompt23_V2_DATA",
+    //        lvl = "L1L2L3Res",
+    //        algo = "AK4PFPuppi";
 
     // Getting the correction factor
     double jet_corrFactor=0.;
-    if(jet_Area==0 && rho_PU==0) jet_corrFactor = 1.;
-    else jet_corrFactor = singleLevelEnergyCorr(jet_raw_map, cset, jec, lvl, algo);
+    if(jet_Area==0 && rho_PU==0){
+        jet_corrFactor = 1.;
+        // std::cout << "Jet area and rho_PU are zero, setting jet_corrFactor to 1.0" << std::endl;
+    } else{
+        jet_corrFactor = singleLevelEnergyCorr(jet_raw_map);
+        // //Imprimir el jet_raw_map
+        // std::cout << "Jet raw map for correction: " << std::endl;
+        // for (const auto& pair : jet_raw_map) {
+        //     std::cout << "\t" << pair.first << ": " << get<double>(pair.second) << std::endl;
+        // }    
+    }
 
     // Corrected jet without the muon
     TLorentzVector jet_corr_no_mu = jet_raw_no_mu * jet_corrFactor;
@@ -431,7 +464,7 @@ inline ROOT::VecOps::RVec<Short_t> calculateGenCandsJetIdx(const ROOT::VecOps::R
     return GenCands_jetIdx;
 }
 
-inline Lepton triggerLepton(const rvec_f &pt_le, const rvec_f &eta_le, const rvec_f &phi_le, const rvec_i &pdgId_le, const rvec_i &jetIdx_le, const rvec_b &tightId_le, /*const rvec_f &ak4_lesubDeltaeta, const rvec_f &ak4_lesubDeltaphi, const rvec_f &ak4_lesubfactor,*/ const rvec_f &PFCands_pt, const rvec_f &PFCands_eta, const rvec_f &PFCands_phi, const rvec_i &PFCands_pdgId, const rvec_f &ak4_pt, const rvec_f &ak4_eta, const rvec_f &ak4_phi, const rvec_f &ak4_mass, const rvec_b &ak4_passJetIdTightLepVeto, const rvec_f &ak4_rawFactor, const rvec_f &ak4_area, const float &rho_PU, float ak4_pt_threshold = 25.0, const bool isMuon = true, bool AnalysisCuts = false, bool GenLevel = false, const float thr_dR = 0.3, const float thr_ptrel = 30.0) {
+inline Lepton triggerLepton(const rvec_f &pt_le, const rvec_f &eta_le, const rvec_f &phi_le, const rvec_i &pdgId_le, const rvec_i &jetIdx_le, const rvec_b &tightId_le, /*const rvec_f &ak4_lesubDeltaeta, const rvec_f &ak4_lesubDeltaphi, const rvec_f &ak4_lesubfactor,*/ const rvec_f &PFCands_pt, const rvec_f &PFCands_eta, const rvec_f &PFCands_phi, const rvec_i &PFCands_pdgId, const rvec_f &ak4_pt, const rvec_f &ak4_eta, const rvec_f &ak4_phi, const rvec_f &ak4_mass, const rvec_b &ak4_passJetIdTightLepVeto, const rvec_f &ak4_rawFactor, const rvec_f &ak4_area, const float &rho_PU, const float run, float ak4_pt_threshold = 25.0, const bool isMuon = true, bool AnalysisCuts = false, bool GenLevel = false, const float thr_dR = 0.3, const float thr_ptrel = 30.0) {
     // std::cout << "Is GenLevel: " << GenLevel << std::endl;
     // std::cout << "Trigger Lepton selection: isMuon = " << isMuon << ", AnalysisCuts = " << AnalysisCuts << std::endl;
     // std::cout << "Jet threshold: " << ak4_pt_threshold << std::endl;
@@ -517,7 +550,7 @@ inline Lepton triggerLepton(const rvec_f &pt_le, const rvec_f &eta_le, const rve
 
                 if(muon_belongs_to_jet && dR < 0.4) {
 
-                    tmp_ptrel = compute_ptrel_new(lepton_p4, jet_corr_p4, dR, ak4_pt_threshold, ak4_rawFactor[j], ak4_area[j], rho_PU, cset);
+                    tmp_ptrel = compute_ptrel_new(lepton_p4, jet_corr_p4, dR, ak4_pt_threshold, ak4_rawFactor[j], ak4_area[j], rho_PU, run);
                 }
 
                 // std::cout << " min_dR_to_jet = " << min_dR_to_jet << ", deltaR = " << deltaR(eta_le[i], phi_le[i], ak4_eta[j], ak4_phi[j])  << ", deltaRpart = " << dR << endl;

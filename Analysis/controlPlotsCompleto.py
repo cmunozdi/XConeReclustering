@@ -612,21 +612,21 @@ def apply_event_selection(rdfs, isMC=True, TWPbtag2023=0.6553):
 columns_mc = ["eventWeight", "btagWeight", "muoWeight", "PUReweighting", #"event", "run", "luminosityBlock", "lepton.pt", "lepton.eta", "lepton.phi", "lepton.pdgId", "lepton.n_lep", "lepton.dR_to_jet", "lepton.pt_rel_to_jet", "lepton.closest_jet_idx", #Uncomment this when lepton already has dR and ptrel
 #               "muon.pt", "muon.eta", "muon.phi", "muon.pdgId", "electron.pt", "electron.eta", "electron.phi", "electron.pdgId",
             #   "Muon_pt", "Muon_eta", "Muon_phi", "Muon_pdgId", "Electron_pt", "Electron_eta", "Electron_phi", "Electron_pdgId", "Num_lep_above_15", "Muon_jetIdx",
-              "lepton_trg_pt", "lepton_tuneP_pt", "lepton_trg_eta", "lepton_trg_phi", "lepton_trg_pdgId", "lepton_trg_n_lep", "lepton_trg_dR", "lepton_trg_ptrel",
-            #   "PuppiMET_pt", "Jet_pt", "HLT_Mu50", "HLT_Ele30_WPTight_Gsf", "HLT_Ele115_CaloIdVT_GsfTrkIdT", "HLT_Photon175",
-#               "electron_trg.pt", "muon.pt",
-              "Jet_pt", "Jet_eta", "Jet_btagDeepFlavB", "Jet_hadronFlavour", "Jet_passJetIdTightLepVeto", "Jet_passJetIdTight",
-              "Jet_phi", "Jet_rawFactor", "Jet_area","Rho_fixedGridRhoFastjetAll", #"Jet_passJetIdTightLepVeto",#
-              "bjet_pt", "bjet_eta", "bjet_btag", "n_bjets", #"pt_miss",
-              "PuppiMET_pt",
-              "fatjets.n_jets", "fatjets.pt", "fatjets.eta",
-              "fatjets.phi", "fatjets.mass",
-              "subjets.n_jets", "subjets.pt", "subjets.eta", "subjets.phi", "subjets.mass", "subjets.findLepton",
-              "topjets.n_subjets", "topjets.pt", "topjets.eta", "topjets.phi", "topjets.mass",
-              "topjets.subjets_in_topjet", "topjets.pt_W", "topjets.eta_W", "topjets.phi_W",
-              "topjets.mass_W", "topjets.subjets_in_W", "fastjet_CandsList", "subjet_CandsList", "fatjets.findLepton",
-              "pass_detector_selection", ]#"PFCands_pt", "PFCands_eta", "PFCands_phi", "PFCands_pdgId"]
-columns_data = [col for col in columns_mc if col not in ["eventWeight", "btagWeight", "muoWeight", "PUReweighting", "Jet_hadronFlavour"]]
+                          "lepton_trg_pt", "lepton_tuneP_pt", "lepton_trg_eta", "lepton_trg_phi", "lepton_trg_pdgId", "lepton_trg_n_lep", "lepton_trg_dR", "lepton_trg_ptrel",
+                                      #   "PuppiMET_pt", "Jet_pt", "HLT_Mu50", "HLT_Ele30_WPTight_Gsf", "HLT_Ele115_CaloIdVT_GsfTrkIdT", "HLT_Photon175",
+                                      #               "electron_trg.pt", "muon.pt",
+                                                    "Jet_pt", "Jet_eta", "Jet_btagDeepFlavB", "Jet_hadronFlavour", "Jet_passJetIdTightLepVeto", "Jet_passJetIdTight",
+                                                                  "Jet_phi", "Jet_rawFactor", "Jet_area","Rho_fixedGridRhoFastjetAll", #"Jet_passJetIdTightLepVeto",#
+                                                                                "bjet_pt", "bjet_eta", "bjet_btag", "n_bjets", #"pt_miss",
+                                                                                              "PuppiMET_pt",
+                                                                                                            "fatjets.n_jets", "fatjets.pt", "fatjets.eta",
+                                                                                                                          "fatjets.phi", "fatjets.mass",
+                                                                                                                                        "subjets.n_jets", "subjets.pt", "subjets.eta", "subjets.phi", "subjets.mass", "subjets.findLepton",
+                                                                                                                                                      "topjets.n_subjets", "topjets.pt", "topjets.eta", "topjets.phi", "topjets.mass",
+                                                                                                                                                                    "topjets.subjets_in_topjet", "topjets.pt_W", "topjets.eta_W", "topjets.phi_W",
+                                                                                                                                                                                  "topjets.mass_W", "topjets.subjets_in_W", "fastjet_CandsList", "subjet_CandsList", "fatjets.findLepton",
+                                                                                                                                                                                                "pass_detector_selection", ]#"PFCands_pt", "PFCands_eta", "PFCands_phi", "PFCands_pdgId"]
+                                                                                                                                                                                                columns_data = [col for col in columns_mc if col not in ["eventWeight", "btagWeight", "muoWeight", "PUReweighting", "Jet_hadronFlavour"]]
 # columns_data = columns_data + ["Jet_passJetIdTightLepVeto"]
 
 # DATA: MUON 0
