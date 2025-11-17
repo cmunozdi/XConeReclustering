@@ -63,14 +63,14 @@ inline void initializeCorrectionSet(bool isMC = true, const std::string &jec_ove
     if (!jec_override.empty()) {
         g_jec_tag = jec_override;
     } else {
-        g_jec_tag = g_isMC ? "Summer22EE_22Sep2023_V3_MC" : "Summer22EE_22Sep2023_RunG_V3_DATA";
+        g_jec_tag = g_isMC ? "Summer22EE_22Sep2023_V3_MC" : "Summer22EE_22Sep2023_RunF_V3_DATA"; //"Summer23Prompt23_V2_MC" : "Summer23Prompt23_V2_DATA"; 
     }
     // lvl/algo kept as defaults but can be changed from Python if desired:
     std::cout << "Using JEC tag: " << g_jec_tag << std::endl;
     g_lvl_tag  = "L1L2L3Res";
     g_algo_tag = "AK4PFPuppi";
 
-    fs::path fname_ak4_2023 = "/cvmfs/cms-griddata.cern.ch/cat/metadata/JME/Run3-22EFGSep23-Summer22EE-NanoAODv12/latest/jet_jerc.json.gz"; //"./jet_jerc.json.gz";
+    fs::path fname_ak4_2023 = "/cvmfs/cms-griddata.cern.ch/cat/metadata/JME/Run3-22EFGSep23-Summer22EE-NanoAODv12/latest/jet_jerc.json.gz"; //"/cvmfs/cms-griddata.cern.ch/cat/metadata/JME/Run3-23CSep23-Summer23-NanoAODv12/latest/jet_jerc.json.gz"; //"./jet_jerc.json.gz";
     if (!fs::exists(fname_ak4_2023)) {
         throw std::runtime_error("El archivo de corrección no existe: " + fname_ak4_2023.string());
     }

@@ -35,10 +35,11 @@ std::unique_ptr<correction::CorrectionSet> sf_btagset;
 std::unique_ptr<correction::CorrectionSet> eff_btagset;
 std::unique_ptr<correction::CorrectionSet> sf_muoset;
 std::unique_ptr<correction::CorrectionSet> sf_purew;
+std::unique_ptr<correction::CorrectionSet> jet_veto_map_set;
 
 // Initialize `cset` at the begining of the header
 inline void initializeCorrectionSet() {
-    fs::path fname_ak4_2023 = "./2023jec/jet_jerc.json.gz";
+    fs::path fname_ak4_2023 = "/cvmfs/cms-griddata.cern.ch/cat/metadata/JME/Run3-22EFGSep23-Summer22EE-NanoAODv12/latest/jet_jerc.json.gz";//"./2023jec/jet_jerc.json.gz";
     // fs::path fname_btag_2023 = "/cvmfs/cms.cern.ch/rsync/cms-nanoAOD/jsonpog-integration/POG/BTV/2023_Summer23/btagging.json.gz";
     if (!fs::exists(fname_ak4_2023)) {
         throw std::runtime_error("El archivo de corrección no existe: " + fname_ak4_2023.string());
@@ -54,8 +55,8 @@ inline void initializeCorrectionSet() {
 }
 
 inline void initializeBTagCorrectionSet() {
-    fs::path fname_sf_btag_2023 = "./btagSFs/btagging.json.gz"; //"/eos/user/c/cmunozdi/SWAN_projects/BtagScaleFactors/btagging.json.gz"; 
-    fs::path fname_eff_btag_2023 = "./btagSFs/btag_efficiencies_combined.json"; //"/eos/project/r/rtu-topanalysis/AnalysisSamples_JetTightIDNoLepVeto/output_efficiencies_rdf/btag_efficiencies_combined.json"; 
+    fs::path fname_sf_btag_2023 = "/cvmfs/cms-griddata.cern.ch/cat/metadata/BTV/Run3-22EFGSep23-Summer22EE-NanoAODv12/latest/btagging.json.gz";//"./btagSFs/btagging.json.gz"; //"/eos/user/c/cmunozdi/SWAN_projects/BtagScaleFactors/btagging.json.gz"; 
+    fs::path fname_eff_btag_2023 = "/eos/project/r/rtu-topanalysis/cmunozdi/AnalysisSamples_JetTightIDNoLepVeto_Full/output_efficiencies_rdf_topSemi_2022postEE/btag_efficiencies_combined.json";//"./btagSFs/btag_efficiencies_combined.json"; //"/eos/project/r/rtu-topanalysis/AnalysisSamples_JetTightIDNoLepVeto/output_efficiencies_rdf/btag_efficiencies_combined.json"; 
     // fs::path fname_btag_2023 = "/cvmfs/cms.cern.ch/rsync/cms-nanoAOD/jsonpog-integration/POG/BTV/2023_Summer23/btagging.json.gz";
     if (!fs::exists(fname_sf_btag_2023)) {
         throw std::runtime_error("Correction file does not exist: " + fname_sf_btag_2023.string());
@@ -71,7 +72,7 @@ inline void initializeBTagCorrectionSet() {
 }
 
 inline void initializeMUOCorrectionSet() {
-    fs::path fname_sf_MUO_2023 = "./muoSFs/muon_HighPt.json.gz";
+    fs::path fname_sf_MUO_2023 = "/cvmfs/cms-griddata.cern.ch/cat/metadata/MUO/Run3-22EFGSep23-Summer22EE-NanoAODv12/latest/muon_HighPt.json.gz";//"./muoSFs/muon_HighPt.json.gz";
     if (!fs::exists(fname_sf_MUO_2023)) {
         throw std::runtime_error("Correction file does not exist: " + fname_sf_MUO_2023.string());
     }
@@ -80,12 +81,22 @@ inline void initializeMUOCorrectionSet() {
 }
 
 inline void initializePUReweightingCorrectionSet() {
-    fs::path fname_puReweighting_2023 = "./puRew/puWeights.json.gz";
+    fs::path fname_puReweighting_2023 = "/cvmfs/cms-griddata.cern.ch/cat/metadata/LUM/Run3-22EFGSep23-Summer22EE-NanoAODv12/latest/puWeights.json.gz";//"./puRew/puWeights.json.gz";
     if (!fs::exists(fname_puReweighting_2023)) {
         throw std::runtime_error("Correction file does not exist: " + fname_puReweighting_2023.string());
     }
     sf_purew = correction::CorrectionSet::from_file(fname_puReweighting_2023.string());
     std::cout << "Correction file loaded susscessfully: " << fname_puReweighting_2023.string() << std::endl;
+}
+
+//Initialize jet veto map json file
+inline void initializeJetVetoMap(){
+    fs::path fname_jetVetoMap_2023 = "/cvmfs/cms-griddata.cern.ch/cat/metadata/JME/Run3-22EFGSep23-Summer22EE-NanoAODv12/latest/jetvetomaps.json.gz";//"/cvmfs/cms-griddata.cern.ch/cat/metadata/JME/Run3-23CSep23-Summer23-NanoAODv12/latest/jetvetomaps.json.gz";
+    if (!fs::exists(fname_jetVetoMap_2023)) {
+        throw std::runtime_error("Correction file does not exist: " + fname_jetVetoMap_2023.string());
+    }
+    jet_veto_map_set = correction::CorrectionSet::from_file(fname_jetVetoMap_2023.string());
+    std::cout << "Correction file loaded susscessfully: " << fname_jetVetoMap_2023.string() << std::endl;
 }
 
 // Funtion to compute btagWeight of the event given the jet collection
@@ -153,25 +164,25 @@ inline float compute_MUOWeight(const float &muo_pt, const float &muo_eta){
     try {
         w_global = sf_muoset->at("NUM_GlobalMuons_DEN_TrackerMuonProbes")->evaluate({muo_eta, muo_p, "nominal"});
     } catch (const std::exception &e) {
-        std::cerr << "Error in w_global: " << e.what() << std::endl;
+        // std::cerr << "Error in w_global: " << e.what() << std::endl;
     }
 
     try {
         w_highptid = sf_muoset->at("NUM_HighPtID_DEN_GlobalMuonProbes")->evaluate({muo_eta, muo_pt, "nominal"});
     } catch (const std::exception &e) {
-        std::cerr << "Error in w_highptid: " << e.what() << std::endl;
+        // std::cerr << "Error in w_highptid: " << e.what() << std::endl;
     }
 
     try {
         w_iso = sf_muoset->at("NUM_probe_LooseRelTkIso_DEN_HighPtProbes")->evaluate({muo_eta, muo_pt, "nominal"});
     } catch (const std::exception &e) {
-        std::cerr << "Error in w_iso: " << e.what() << std::endl;
+        // std::cerr << "Error in w_iso: " << e.what() << std::endl;
     }
 
     try {
         w_hlt = sf_muoset->at("NUM_HLT_DEN_HighPtLooseRelIsoProbes")->evaluate({muo_eta, muo_pt, "nominal"});
     } catch (const std::exception &e) {
-        std::cerr << "Error in w_hlt: " << e.what() << std::endl;
+        // std::cerr << "Error in w_hlt: " << e.what() << std::endl;
     }
 
     weight = w_global * w_highptid * w_iso * w_hlt;
@@ -184,12 +195,31 @@ inline float compute_PUReweight(const float &PU_NumTrueInteractions){
     float weight = 1.;
 
     try{
-        weight = sf_purew->at("Collisions2023_366403_369802_eraBC_GoldenJson")->evaluate({PU_NumTrueInteractions, "nominal"});
+        weight = sf_purew->at("Collisions2022_359022_362760_eraEFG_GoldenJson")->evaluate({PU_NumTrueInteractions, "nominal"}); //at("Collisions2023_366403_369802_eraBC_GoldenJson")->evaluate({PU_NumTrueInteractions, "nominal"});
     } catch (const std::exception &e) {
-        std::cerr << "Error in w_pu: " << e.what() << std::endl;
+        // std::cerr << "Error in w_pu: " << e.what() << std::endl;
     }
 
     return weight;
+}
+
+//Funtion to Veto or not events based on jet veto map
+inline bool is_event_not_vetoed_by_jetVetoMap(const rvec_f &jet_etas, const rvec_f &jet_phis){
+
+    bool is_vetoed = false;
+    //Implement the jet veto map evaluation here for each jet in the event until one vetoes the event or all jets are checked
+    for(size_t i=0; i<jet_etas.size(); i++){
+        float veto_map_value = 0.;
+        try{
+            veto_map_value = jet_veto_map_set->at("Summer22EE_23Sep2023_RunEFG_V1")->evaluate({"jetvetomap",jet_etas[i], jet_phis[i]}); // Summer23Prompt23_RunC_V1
+        } catch (const std::exception &e) {
+            std::cerr << "Error in jet veto map evaluation for jet " << i << ": " << e.what() << std::endl;
+            continue;
+        }
+        if(veto_map_value != 0.) return false; //Event is vetoed
+    }
+
+    return true; // Event is not vetoed
 }
 
 struct Lepton{

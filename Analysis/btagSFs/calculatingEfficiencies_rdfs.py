@@ -9,10 +9,10 @@ import time
 start_time = time.time()
 
 #Input files TTbar semi directory
-input_files = "/eos/project/r/rtu-topanalysis/cmunozdi/AnalysisSamples_JetTightIDNoLepVeto_Full/MC/2024/TTbar/TTtoLNu2Q_TuneCP5_13p6TeV_powheg-pythia8/RunIII2024Summer24MiniAODv6-150X_mcRun3_2024_realistic_v2-v2_BTV_Run3_2024_Comm_MINIAODv6/251007_070711/000*/*root"
+input_files = "/eos/project/r/rtu-topanalysis/cmunozdi/AnalysisSamples_JetTightIDNoLepVeto_Full/MC/2022postEE/TTbar/TTtoLNu2Q_TuneCP5_13p6TeV_powheg-pythia8/Run3Summer22EEMiniAODv4-130X_mcRun3_2022_realistic_postEE_v6-v2_BTV_Run3_2022_Comm_MINIAODv4/251105_115933/000*/*root"
 
 #Output directory for the generated files (json and root)
-output_dir = "/eos/project/r/rtu-topanalysis/cmunozdi/AnalysisSamples_JetTightIDNoLepVeto_Full/output_efficiencies_rdf_topSemi_2024"
+output_dir = "/eos/project/r/rtu-topanalysis/cmunozdi/AnalysisSamples_JetTightIDNoLepVeto_Full/output_efficiencies_rdf_topSemi_2022postEE"
 os.makedirs(output_dir, exist_ok=True)
 
 print(f"🔍 Processing ROOT files from: {input_files}")
@@ -23,9 +23,10 @@ pt_edges = np.array([30, 50, 70, 100, 140, 200, 300, 600, 1000, float('inf')], d
 eta_edges = np.array([-2.5, -1.6, -0.8, 0. , 0.8, 1.6, 2.5], dtype="float64")
 
 # Btag WP para 2023 pre-BPix (Tight)
+# Btag Tight WP for 2022 post-EE: 0.7300 (DeegJet: https://btv-wiki.docs.cern.ch/ScaleFactors/Run3Summer22EE/#ak4-b-tagging)
 # Btag Tight WP for 2023 pre-BPix: 0.6553 (DeepJet: https://btv-wiki.docs.cern.ch/ScaleFactors/Run3Summer23/#ak4-b-tagging)
 # Btag Tight WP for 2024: 0.4648 (UParTAK4: https://btv-wiki.docs.cern.ch/ScaleFactors/Run3Summer24/#ak4-b-tagging)
-btag_WP = 0.4648
+btag_WP = 0.7300
 
 # Create the RDataFrame
 rdf = ROOT.RDataFrame("Events", input_files)
@@ -34,8 +35,8 @@ rdf = ROOT.RDataFrame("Events", input_files)
 
         #  .Define('Num_lep_above_15', "Sum(Muon_pt > 15 && abs(Muon_eta) < 2.4) + Sum(Electron_pt > 15 && abs(Electron_eta) < 2.4)") \
 print("🎭 Applying kinematic and WP masks...")
-#rdf = rdf.Define("Jet_btag_pass", f"Jet_btagDeepFlavB > {btag_WP}")  # Evaluate the btag WP directly. For 2024 onwards, use Jet_btagUParTAK4B branch
-rdf = rdf.Define("Jet_btag_pass", f"Jet_btagUParTAK4B > {btag_WP}")  # Evaluate the btag WP directly. For 2024 onwards, use Jet_btagUParTAK4B branch
+rdf = rdf.Define("Jet_btag_pass", f"Jet_btagDeepFlavB > {btag_WP}")  # Evaluate the btag WP directly.
+# rdf = rdf.Define("Jet_btag_pass", f"Jet_btagUParTAK4B > {btag_WP}")  # For 2024 onwards, use Jet_btagUParTAK4B branch
 rdf = rdf.Filter("pass_detector_selection", "Detector selection") \
          .Filter('Sum(lepton.pt>55 && abs(lepton.eta)<2.4) == 1') \
          .Define('selected_lepton_idx', 'ROOT::VecOps::ArgMax(lepton.pt > 55 && abs(lepton.eta) < 2.4)') \
@@ -55,6 +56,7 @@ rdf = rdf.Filter("pass_detector_selection", "Detector selection") \
                 ) \
          .Filter("topjets.n_subjets == 3", "Three subjets inside the topjet") \
          .Filter("topjets.pt > 350") \
+         .Filter("pass_MET_filters_2022")
 
 
 # Calculate efficiencies in pt and eta bins for b, c, and light-flavour jets

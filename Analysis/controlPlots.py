@@ -6,19 +6,19 @@ import os
 from glob import glob
 
 #Bool variables to know over which sample should we run the code
-is_ttbar_semi = False
+is_ttbar_semi = True
 is_ttbar_bck = False
 is_singletop = False
 is_wjets = False
 is_qcdmu = False
 is_dy = False
 is_vv = False
-is_data0 = True
-is_data1 = True
-
+is_data0 = False
+is_data1 = False
 OnlyGeneratePKLFiles = False
 # Directory to save output files
-output_dir = "/eos/project/r/rtu-topanalysis/cmunozdi/DataFramesPKL/2023preBPix/PreViewOnlyPreProductionSelectionMuonV1_JECcorrected"
+output_dir = "/eos/project/r/rtu-topanalysis/cmunozdi/DataFramesPKL/2022postEE/DifferentBranchesMuonEraG" #"/eos/project/r/rtu-topanalysis/cmunozdi/DataFramesPKL/2023preBPix/DifferentBranchesMuonv1to4_JetVetoMap"
+sufix_plotdir = "_G"  # Suffix for the plot directory
 
 save_roots_boosted_selection = False
 
@@ -30,6 +30,7 @@ ROOT.gInterpreter.ProcessLine("initializeCorrectionSet();")
 ROOT.gInterpreter.ProcessLine("initializeBTagCorrectionSet();")
 ROOT.gInterpreter.ProcessLine("initializeMUOCorrectionSet();")
 ROOT.gInterpreter.ProcessLine("initializePUReweightingCorrectionSet();")
+ROOT.gInterpreter.ProcessLine("initializeJetVetoMap();")
 
 ROOT.ROOT.EnableImplicitMT()
 
@@ -92,14 +93,22 @@ def create_rdf_with_weights(input_dir, cross_section, luminosity, max_files=None
     return rdf
 
 
-luminosity = 18.062658998*1000 #Muon1 v1 correct JEC for data #7.220180367*1000 #Muon0&1 v1to3 wrong JEC for data #10.842478631*1000 #Muon0&1 v4 wrong JEC for data #1.606429085*1000 #Muon0&1 v3 wrong JEC for data #1.270749295*1000 #Muon0&1 v2 wrong JEC for data #4.343001987*1000   #Only version 1 Muon0&1 wrong JEC for data #18.062658998*1000 #This new value is using /cvmfs/cms-bril.cern.ch/cms-lumi-pog/Normtags/normtag_PHYSICS.json instead of /cvmfs/cms-bril.cern.ch/cms-lumi-pog/Normtags/normtag_BRIL.json 18.084440726*1000 pb^-1 
+luminosity = 3.082753036*1000 #Muon era G correct JEC for data
+
+#18.062658998*1000 #Muon0&1 v1to4 correct JEC for data 
+#7.220180367*1000 #Muon0&1 v1to3 correct JEC for data 
+#10.842478631*1000 #Muon0&1 v4 correct JEC for data
+#1.606429085*1000 #Muon0&1 v3 correct JEC for data 
+#1.270749295*1000 #Muon0&1 v2 correct JEC for data 
+#4.343001987*1000 #Muon0&1 v1 correct JEC for data
+#18.062658998*1000 #This new value is using /cvmfs/cms-bril.cern.ch/cms-lumi-pog/Normtags/normtag_PHYSICS.json instead of /cvmfs/cms-bril.cern.ch/cms-lumi-pog/Normtags/normtag_BRIL.json 18.084440726*1000 pb^-1 
 
 cross_sections_singletop = [87.200000, 4.534000, 4.663095, 19.970880, 19.302840, 145.000000, 7.244000, 4.663095, 19.970880, 19.302840] #[87.200000, 1.477177, 19.302840, 145.000000, 2.360095, 19.302840] # #
 cross_sections_wjets = [368.200000, 421.900000, 25.600000, 54.770000, 0.878500, 3.119000, 4427.000000, 1598.000000, 0.105300, 0.526100]
 cross_sections_ttbar = [923.6*0.4392] #July 2022 value: https://twiki.cern.ch/twiki/bin/view/LHCPhysics/TtbarNNLO#Updated_reference_cross_sections
 cross_sections_ttbar_bck = [923.6*0.1061, 923.6*0.4544]
-cross_sections_qcdmu = [7763, 699.1, 68.24, 21.37, 3.913, 1.323] #[1.323000, 23240.000000, 7763.000000, 699.100000, 68.240000, 404400.000000, 21.370000, 3.913000, 95900.000000]   #
-cross_sections_dy = [6688] #[141500, 20950, 6688] #[20950, 141500, 6688] #
+cross_sections_qcdmu = [402900, 96200, 22980, 7763, 699.1, 68.24, 21.37, 3.913, 1.323] #[1.323000, 23240.000000, 7763.000000, 699.100000, 68.240000, 404400.000000, 21.370000, 3.913000, 95900.000000]   #
+cross_sections_dy = [20950, 6688] #[141500, 20950, 6688] #[20950, 141500, 6688] #
 cross_sections_vv = [116.8, 54.3, 16.7] #[80.23, 29.1, 12.75] #Values from TOP-22-012 https://cms-results.web.cern.ch/cms-results/public-results/publications/TOP-22-012/index.html
 
 if is_singletop:
@@ -136,17 +145,29 @@ if is_singletop:
         # "/eos/project/r/rtu-topanalysis/cmunozdi/AnalysisSamples_JetTightIDNoLepVeto/MC/2023preBPix/SingleTop/TWminusto4Q_TuneCP5_13p6TeV_powheg-pythia8",
         # "/eos/project/r/rtu-topanalysis/cmunozdi/AnalysisSamples_JetTightIDNoLepVeto/MC/2023preBPix/SingleTop/TWminustoLNu2Q_TuneCP5_13p6TeV_powheg-pythia8",
 
-        #Full production samples
-        "/eos/project/r/rtu-topanalysis/cmunozdi/AnalysisSamples_JetTightIDNoLepVeto_Full/MC/2023preBPix/SingleTop/TbarBQ_t-channel_4FS_TuneCP5_13p6TeV_powheg-madspin-pythia8",
-        "/eos/project/r/rtu-topanalysis/cmunozdi/AnalysisSamples_JetTightIDNoLepVeto_Full/MC/2023preBPix/SingleTop/TbarBtoLminusNuB-s-channel-4FS_TuneCP5_13p6TeV_amcatnlo-pythia8",
-        "/eos/project/r/rtu-topanalysis/cmunozdi/AnalysisSamples_JetTightIDNoLepVeto_Full/MC/2023preBPix/SingleTop/TbarWplusto2L2Nu_TuneCP5_13p6TeV_powheg-pythia8",
-        "/eos/project/r/rtu-topanalysis/cmunozdi/AnalysisSamples_JetTightIDNoLepVeto_Full/MC/2023preBPix/SingleTop/TbarWplusto4Q_TuneCP5_13p6TeV_powheg-pythia8",
-        "/eos/project/r/rtu-topanalysis/cmunozdi/AnalysisSamples_JetTightIDNoLepVeto_Full/MC/2023preBPix/SingleTop/TbarWplustoLNu2Q_TuneCP5_13p6TeV_powheg-pythia8",
-        "/eos/project/r/rtu-topanalysis/cmunozdi/AnalysisSamples_JetTightIDNoLepVeto_Full/MC/2023preBPix/SingleTop/TBbarQ_t-channel_4FS_TuneCP5_13p6TeV_powheg-madspin-pythia8",
-        "/eos/project/r/rtu-topanalysis/cmunozdi/AnalysisSamples_JetTightIDNoLepVeto_Full/MC/2023preBPix/SingleTop/TBbartoLplusNuBbar-s-channel-4FS_TuneCP5_13p6TeV_amcatnlo-pythia8",
-        "/eos/project/r/rtu-topanalysis/cmunozdi/AnalysisSamples_JetTightIDNoLepVeto_Full/MC/2023preBPix/SingleTop/TWminusto2L2Nu_TuneCP5_13p6TeV_powheg-pythia8",
-        "/eos/project/r/rtu-topanalysis/cmunozdi/AnalysisSamples_JetTightIDNoLepVeto_Full/MC/2023preBPix/SingleTop/TWminusto4Q_TuneCP5_13p6TeV_powheg-pythia8",
-        "/eos/project/r/rtu-topanalysis/cmunozdi/AnalysisSamples_JetTightIDNoLepVeto_Full/MC/2023preBPix/SingleTop/TWminustoLNu2Q_TuneCP5_13p6TeV_powheg-pythia8",
+        #Full production samples 2023 pre-BPix
+        # "/eos/project/r/rtu-topanalysis/cmunozdi/AnalysisSamples_JetTightIDNoLepVeto_Full/MC/2023preBPix/SingleTop/TbarBQ_t-channel_4FS_TuneCP5_13p6TeV_powheg-madspin-pythia8",
+        # "/eos/project/r/rtu-topanalysis/cmunozdi/AnalysisSamples_JetTightIDNoLepVeto_Full/MC/2023preBPix/SingleTop/TbarBtoLminusNuB-s-channel-4FS_TuneCP5_13p6TeV_amcatnlo-pythia8",
+        # "/eos/project/r/rtu-topanalysis/cmunozdi/AnalysisSamples_JetTightIDNoLepVeto_Full/MC/2023preBPix/SingleTop/TbarWplusto2L2Nu_TuneCP5_13p6TeV_powheg-pythia8",
+        # "/eos/project/r/rtu-topanalysis/cmunozdi/AnalysisSamples_JetTightIDNoLepVeto_Full/MC/2023preBPix/SingleTop/TbarWplusto4Q_TuneCP5_13p6TeV_powheg-pythia8",
+        # "/eos/project/r/rtu-topanalysis/cmunozdi/AnalysisSamples_JetTightIDNoLepVeto_Full/MC/2023preBPix/SingleTop/TbarWplustoLNu2Q_TuneCP5_13p6TeV_powheg-pythia8",
+        # "/eos/project/r/rtu-topanalysis/cmunozdi/AnalysisSamples_JetTightIDNoLepVeto_Full/MC/2023preBPix/SingleTop/TBbarQ_t-channel_4FS_TuneCP5_13p6TeV_powheg-madspin-pythia8",
+        # "/eos/project/r/rtu-topanalysis/cmunozdi/AnalysisSamples_JetTightIDNoLepVeto_Full/MC/2023preBPix/SingleTop/TBbartoLplusNuBbar-s-channel-4FS_TuneCP5_13p6TeV_amcatnlo-pythia8",
+        # "/eos/project/r/rtu-topanalysis/cmunozdi/AnalysisSamples_JetTightIDNoLepVeto_Full/MC/2023preBPix/SingleTop/TWminusto2L2Nu_TuneCP5_13p6TeV_powheg-pythia8",
+        # "/eos/project/r/rtu-topanalysis/cmunozdi/AnalysisSamples_JetTightIDNoLepVeto_Full/MC/2023preBPix/SingleTop/TWminusto4Q_TuneCP5_13p6TeV_powheg-pythia8",
+        # "/eos/project/r/rtu-topanalysis/cmunozdi/AnalysisSamples_JetTightIDNoLepVeto_Full/MC/2023preBPix/SingleTop/TWminustoLNu2Q_TuneCP5_13p6TeV_powheg-pythia8",
+
+        #Full production samples 2022 post-EE
+        "/eos/project/r/rtu-topanalysis/cmunozdi/AnalysisSamples_JetTightIDNoLepVeto_Full/MC/2022postEE/SingleTop/TbarBQ_t-channel_4FS_TuneCP5_13p6TeV_powheg-madspin-pythia8",
+        "/eos/project/r/rtu-topanalysis/cmunozdi/AnalysisSamples_JetTightIDNoLepVeto_Full/MC/2022postEE/SingleTop/TbarBtoLminusNuB-s-channel-4FS_TuneCP5_13p6TeV_amcatnlo-pythia8",
+        "/eos/project/r/rtu-topanalysis/cmunozdi/AnalysisSamples_JetTightIDNoLepVeto_Full/MC/2022postEE/SingleTop/TbarWplusto2L2Nu_TuneCP5_13p6TeV_powheg-pythia8",
+        "/eos/project/r/rtu-topanalysis/cmunozdi/AnalysisSamples_JetTightIDNoLepVeto_Full/MC/2022postEE/SingleTop/TbarWplusto4Q_TuneCP5_13p6TeV_powheg-pythia8",
+        "/eos/project/r/rtu-topanalysis/cmunozdi/AnalysisSamples_JetTightIDNoLepVeto_Full/MC/2022postEE/SingleTop/TbarWplustoLNu2Q_TuneCP5_13p6TeV_powheg-pythia8",
+        "/eos/project/r/rtu-topanalysis/cmunozdi/AnalysisSamples_JetTightIDNoLepVeto_Full/MC/2022postEE/SingleTop/TBbarQ_t-channel_4FS_TuneCP5_13p6TeV_powheg-madspin-pythia8",
+        "/eos/project/r/rtu-topanalysis/cmunozdi/AnalysisSamples_JetTightIDNoLepVeto_Full/MC/2022postEE/SingleTop/TBbartoLplusNuBbar-s-channel-4FS_TuneCP5_13p6TeV_amcatnlo-pythia8",
+        "/eos/project/r/rtu-topanalysis/cmunozdi/AnalysisSamples_JetTightIDNoLepVeto_Full/MC/2022postEE/SingleTop/TWminusto2L2Nu_TuneCP5_13p6TeV_powheg-pythia8",
+        "/eos/project/r/rtu-topanalysis/cmunozdi/AnalysisSamples_JetTightIDNoLepVeto_Full/MC/2022postEE/SingleTop/TWminusto4Q_TuneCP5_13p6TeV_powheg-pythia8",
+        "/eos/project/r/rtu-topanalysis/cmunozdi/AnalysisSamples_JetTightIDNoLepVeto_Full/MC/2022postEE/SingleTop/TWminustoLNu2Q_TuneCP5_13p6TeV_powheg-pythia8",        
 
 
     ]
@@ -189,19 +210,30 @@ if is_wjets:
         # "/eos/project/r/rtu-topanalysis/cmunozdi/AnalysisSamples_JetTightIDNoLepVeto/MC/2023preBPix/WJets/WtoLNu-2Jets_PTLNu-600_1J_TuneCP5_13p6TeV_amcatnloFXFX-pythia8",
         # "/eos/project/r/rtu-topanalysis/cmunozdi/AnalysisSamples_JetTightIDNoLepVeto/MC/2023preBPix/WJets/WtoLNu-2Jets_PTLNu-600_2J_TuneCP5_13p6TeV_amcatnloFXFX-pythia8",
 
-        #Full production samples
+        #Full production samples 2023 pre-BPix
         # "/eos/project/r/rtu-topanalysis/cmunozdi/AnalysisSamples_JetTightIDNoLepVeto_Full/MC/2023preBPix/WJets/WtoLNu-2Jets_TuneCP5_13p6TeV_amcatnloFXFX-pythia8",
-        "/eos/project/r/rtu-topanalysis/cmunozdi/AnalysisSamples_JetTightIDNoLepVeto_Full/MC/2023preBPix/WJets/WtoLNu-2Jets_PTLNu-100to200_1J_TuneCP5_13p6TeV_amcatnloFXFX-pythia8",
-        "/eos/project/r/rtu-topanalysis/cmunozdi/AnalysisSamples_JetTightIDNoLepVeto_Full/MC/2023preBPix/WJets/WtoLNu-2Jets_PTLNu-100to200_2J_TuneCP5_13p6TeV_amcatnloFXFX-pythia8",
-        "/eos/project/r/rtu-topanalysis/cmunozdi/AnalysisSamples_JetTightIDNoLepVeto_Full/MC/2023preBPix/WJets/WtoLNu-2Jets_PTLNu-200to400_1J_TuneCP5_13p6TeV_amcatnloFXFX-pythia8",
-        "/eos/project/r/rtu-topanalysis/cmunozdi/AnalysisSamples_JetTightIDNoLepVeto_Full/MC/2023preBPix/WJets/WtoLNu-2Jets_PTLNu-200to400_2J_TuneCP5_13p6TeV_amcatnloFXFX-pythia8",
-        "/eos/project/r/rtu-topanalysis/cmunozdi/AnalysisSamples_JetTightIDNoLepVeto_Full/MC/2023preBPix/WJets/WtoLNu-2Jets_PTLNu-400to600_1J_TuneCP5_13p6TeV_amcatnloFXFX-pythia8",
-        "/eos/project/r/rtu-topanalysis/cmunozdi/AnalysisSamples_JetTightIDNoLepVeto_Full/MC/2023preBPix/WJets/WtoLNu-2Jets_PTLNu-400to600_2J_TuneCP5_13p6TeV_amcatnloFXFX-pythia8",
-        "/eos/project/r/rtu-topanalysis/cmunozdi/AnalysisSamples_JetTightIDNoLepVeto_Full/MC/2023preBPix/WJets/WtoLNu-2Jets_PTLNu-40to100_1J_TuneCP5_13p6TeV_amcatnloFXFX-pythia8",
-        "/eos/project/r/rtu-topanalysis/cmunozdi/AnalysisSamples_JetTightIDNoLepVeto_Full/MC/2023preBPix/WJets/WtoLNu-2Jets_PTLNu-40to100_2J_TuneCP5_13p6TeV_amcatnloFXFX-pythia8",
-        "/eos/project/r/rtu-topanalysis/cmunozdi/AnalysisSamples_JetTightIDNoLepVeto_Full/MC/2023preBPix/WJets/WtoLNu-2Jets_PTLNu-600_1J_TuneCP5_13p6TeV_amcatnloFXFX-pythia8",
-        "/eos/project/r/rtu-topanalysis/cmunozdi/AnalysisSamples_JetTightIDNoLepVeto_Full/MC/2023preBPix/WJets/WtoLNu-2Jets_PTLNu-600_2J_TuneCP5_13p6TeV_amcatnloFXFX-pythia8",
+        # "/eos/project/r/rtu-topanalysis/cmunozdi/AnalysisSamples_JetTightIDNoLepVeto_Full/MC/2023preBPix/WJets/WtoLNu-2Jets_PTLNu-100to200_1J_TuneCP5_13p6TeV_amcatnloFXFX-pythia8",
+        # "/eos/project/r/rtu-topanalysis/cmunozdi/AnalysisSamples_JetTightIDNoLepVeto_Full/MC/2023preBPix/WJets/WtoLNu-2Jets_PTLNu-100to200_2J_TuneCP5_13p6TeV_amcatnloFXFX-pythia8",
+        # "/eos/project/r/rtu-topanalysis/cmunozdi/AnalysisSamples_JetTightIDNoLepVeto_Full/MC/2023preBPix/WJets/WtoLNu-2Jets_PTLNu-200to400_1J_TuneCP5_13p6TeV_amcatnloFXFX-pythia8",
+        # "/eos/project/r/rtu-topanalysis/cmunozdi/AnalysisSamples_JetTightIDNoLepVeto_Full/MC/2023preBPix/WJets/WtoLNu-2Jets_PTLNu-200to400_2J_TuneCP5_13p6TeV_amcatnloFXFX-pythia8",
+        # "/eos/project/r/rtu-topanalysis/cmunozdi/AnalysisSamples_JetTightIDNoLepVeto_Full/MC/2023preBPix/WJets/WtoLNu-2Jets_PTLNu-400to600_1J_TuneCP5_13p6TeV_amcatnloFXFX-pythia8",
+        # "/eos/project/r/rtu-topanalysis/cmunozdi/AnalysisSamples_JetTightIDNoLepVeto_Full/MC/2023preBPix/WJets/WtoLNu-2Jets_PTLNu-400to600_2J_TuneCP5_13p6TeV_amcatnloFXFX-pythia8",
+        # "/eos/project/r/rtu-topanalysis/cmunozdi/AnalysisSamples_JetTightIDNoLepVeto_Full/MC/2023preBPix/WJets/WtoLNu-2Jets_PTLNu-40to100_1J_TuneCP5_13p6TeV_amcatnloFXFX-pythia8",
+        # "/eos/project/r/rtu-topanalysis/cmunozdi/AnalysisSamples_JetTightIDNoLepVeto_Full/MC/2023preBPix/WJets/WtoLNu-2Jets_PTLNu-40to100_2J_TuneCP5_13p6TeV_amcatnloFXFX-pythia8",
+        # "/eos/project/r/rtu-topanalysis/cmunozdi/AnalysisSamples_JetTightIDNoLepVeto_Full/MC/2023preBPix/WJets/WtoLNu-2Jets_PTLNu-600_1J_TuneCP5_13p6TeV_amcatnloFXFX-pythia8",
+        # "/eos/project/r/rtu-topanalysis/cmunozdi/AnalysisSamples_JetTightIDNoLepVeto_Full/MC/2023preBPix/WJets/WtoLNu-2Jets_PTLNu-600_2J_TuneCP5_13p6TeV_amcatnloFXFX-pythia8",
 
+        #Full production samples 2022 post-EE
+        "/eos/project/r/rtu-topanalysis/cmunozdi/AnalysisSamples_JetTightIDNoLepVeto_Full/MC/2022postEE/WJets/WtoLNu-2Jets_PTLNu-100to200_1J_TuneCP5_13p6TeV_amcatnloFXFX-pythia8",
+        "/eos/project/r/rtu-topanalysis/cmunozdi/AnalysisSamples_JetTightIDNoLepVeto_Full/MC/2022postEE/WJets/WtoLNu-2Jets_PTLNu-100to200_2J_TuneCP5_13p6TeV_amcatnloFXFX-pythia8",
+        "/eos/project/r/rtu-topanalysis/cmunozdi/AnalysisSamples_JetTightIDNoLepVeto_Full/MC/2022postEE/WJets/WtoLNu-2Jets_PTLNu-200to400_1J_TuneCP5_13p6TeV_amcatnloFXFX-pythia8",
+        "/eos/project/r/rtu-topanalysis/cmunozdi/AnalysisSamples_JetTightIDNoLepVeto_Full/MC/2022postEE/WJets/WtoLNu-2Jets_PTLNu-200to400_2J_TuneCP5_13p6TeV_amcatnloFXFX-pythia8",
+        "/eos/project/r/rtu-topanalysis/cmunozdi/AnalysisSamples_JetTightIDNoLepVeto_Full/MC/2022postEE/WJets/WtoLNu-2Jets_PTLNu-400to600_1J_TuneCP5_13p6TeV_amcatnloFXFX-pythia8",
+        "/eos/project/r/rtu-topanalysis/cmunozdi/AnalysisSamples_JetTightIDNoLepVeto_Full/MC/2022postEE/WJets/WtoLNu-2Jets_PTLNu-400to600_2J_TuneCP5_13p6TeV_amcatnloFXFX-pythia8",
+        "/eos/project/r/rtu-topanalysis/cmunozdi/AnalysisSamples_JetTightIDNoLepVeto_Full/MC/2022postEE/WJets/WtoLNu-2Jets_PTLNu-40to100_1J_TuneCP5_13p6TeV_amcatnloFXFX-pythia8",
+        "/eos/project/r/rtu-topanalysis/cmunozdi/AnalysisSamples_JetTightIDNoLepVeto_Full/MC/2022postEE/WJets/WtoLNu-2Jets_PTLNu-40to100_2J_TuneCP5_13p6TeV_amcatnloFXFX-pythia8",
+        "/eos/project/r/rtu-topanalysis/cmunozdi/AnalysisSamples_JetTightIDNoLepVeto_Full/MC/2022postEE/WJets/WtoLNu-2Jets_PTLNu-600_1J_TuneCP5_13p6TeV_amcatnloFXFX-pythia8",
+        "/eos/project/r/rtu-topanalysis/cmunozdi/AnalysisSamples_JetTightIDNoLepVeto_Full/MC/2022postEE/WJets/WtoLNu-2Jets_PTLNu-600_2J_TuneCP5_13p6TeV_amcatnloFXFX-pythia8",        
 
 
     ]
@@ -220,8 +252,11 @@ if is_ttbar_semi:
         #With PT reweighting
         # "/eos/project/r/rtu-topanalysis/cmunozdi/AnalysisSamples_JetTightIDNoLepVeto/MC/2023preBPix/TTbar_TopPtReweighting/TTtoLNu2Q_TuneCP5_13p6TeV_powheg-pythia8"
 
-        #Full production samples
-        "/eos/project/r/rtu-topanalysis/cmunozdi/AnalysisSamples_JetTightIDNoLepVeto_Full/MC/2023preBPix/TTbar/TTtoLNu2Q_TuneCP5_13p6TeV_powheg-pythia8",
+        #Full production samples 2023 pre-BPix
+        # "/eos/project/r/rtu-topanalysis/cmunozdi/AnalysisSamples_JetTightIDNoLepVeto_Full/MC/2023preBPix/TTbar/TTtoLNu2Q_TuneCP5_13p6TeV_powheg-pythia8",
+
+        #Full production samples 2022 post-EE
+        "/eos/project/r/rtu-topanalysis/cmunozdi/AnalysisSamples_JetTightIDNoLepVeto_Full/MC/2022postEE/TTbar/TTtoLNu2Q_TuneCP5_13p6TeV_powheg-pythia8",        
 
     ]
 
@@ -243,9 +278,13 @@ if is_ttbar_bck:
         # "/eos/project/r/rtu-topanalysis/cmunozdi/AnalysisSamples_JetTightIDNoLepVeto/MC/2023preBPix/TTbar_TopPtReweighting/TTto2L2Nu_TuneCP5_13p6TeV_powheg-pythia8",
         # "/eos/project/r/rtu-topanalysis/cmunozdi/AnalysisSamples_JetTightIDNoLepVeto/MC/2023preBPix/TTbar_TopPtReweighting/TTto4Q_TuneCP5_13p6TeV_powheg-pythia8",
 
-        #Full production samples
-        "/eos/project/r/rtu-topanalysis/cmunozdi/AnalysisSamples_JetTightIDNoLepVeto_Full/MC/2023preBPix/TTbar/TTto2L2Nu_TuneCP5_13p6TeV_powheg-pythia8",
-        "/eos/project/r/rtu-topanalysis/cmunozdi/AnalysisSamples_JetTightIDNoLepVeto_Full/MC/2023preBPix/TTbar/TTto4Q_TuneCP5_13p6TeV_powheg-pythia8",
+        #Full production samples 2023 pre-BPix
+        # "/eos/project/r/rtu-topanalysis/cmunozdi/AnalysisSamples_JetTightIDNoLepVeto_Full/MC/2023preBPix/TTbar/TTto2L2Nu_TuneCP5_13p6TeV_powheg-pythia8",
+        # "/eos/project/r/rtu-topanalysis/cmunozdi/AnalysisSamples_JetTightIDNoLepVeto_Full/MC/2023preBPix/TTbar/TTto4Q_TuneCP5_13p6TeV_powheg-pythia8",
+
+        #Full production samples 2022 post-EE
+        "/eos/project/r/rtu-topanalysis/cmunozdi/AnalysisSamples_JetTightIDNoLepVeto_Full/MC/2022postEE/TTbar/TTto2L2Nu_TuneCP5_13p6TeV_powheg-pythia8",
+        "/eos/project/r/rtu-topanalysis/cmunozdi/AnalysisSamples_JetTightIDNoLepVeto_Full/MC/2022postEE/TTbar/TTto4Q_TuneCP5_13p6TeV_powheg-pythia8",        
 
 
     ]
@@ -285,15 +324,28 @@ if is_qcdmu:
         # "/eos/project/r/rtu-topanalysis/cmunozdi/AnalysisSamples_JetTightIDNoLepVeto/MC/2023preBPix/QCDMu/QCD_PT-50to80_MuEnrichedPt5_TuneCP5_13p6TeV_pythia8",
         # "/eos/project/r/rtu-topanalysis/cmunozdi/AnalysisSamples_JetTightIDNoLepVeto/MC/2023preBPix/QCDMu/QCD_PT-80to120_MuEnrichedPt5_TuneCP5_13p6TeV_pythia8",
 
-        #Full production samples
-        "/eos/project/r/rtu-topanalysis/cmunozdi/AnalysisSamples_JetTightIDNoLepVeto_Full/MC/2023preBPix/QCDMu/QCD_PT-170to300_MuEnrichedPt5_TuneCP5_13p6TeV_pythia8",
-        "/eos/project/r/rtu-topanalysis/cmunozdi/AnalysisSamples_JetTightIDNoLepVeto_Full/MC/2023preBPix/QCDMu/QCD_PT-300to470_MuEnrichedPt5_TuneCP5_13p6TeV_pythia8",
-        "/eos/project/r/rtu-topanalysis/cmunozdi/AnalysisSamples_JetTightIDNoLepVeto_Full/MC/2023preBPix/QCDMu/QCD_PT-470to600_MuEnrichedPt5_TuneCP5_13p6TeV_pythia8",
-        "/eos/project/r/rtu-topanalysis/cmunozdi/AnalysisSamples_JetTightIDNoLepVeto_Full/MC/2023preBPix/QCDMu/QCD_PT-600to800_MuEnrichedPt5_TuneCP5_13p6TeV_pythia8",
-        "/eos/project/r/rtu-topanalysis/cmunozdi/AnalysisSamples_JetTightIDNoLepVeto_Full/MC/2023preBPix/QCDMu/QCD_PT-800to1000_MuEnrichedPt5_TuneCP5_13p6TeV_pythia8",
-        "/eos/project/r/rtu-topanalysis/cmunozdi/AnalysisSamples_JetTightIDNoLepVeto_Full/MC/2023preBPix/QCDMu/QCD_PT-1000_MuEnrichedPt5_TuneCP5_13p6TeV_pythia8",
-        "/eos/project/r/rtu-topanalysis/cmunozdi/AnalysisSamples_JetTightIDNoLepVeto_Full/MC/2023preBPix/QCDMu/QCD_PT-120to170_MuEnrichedPt5_TuneCP5_13p6TeV_pythia8",
-        "/eos/project/r/rtu-topanalysis/cmunozdi/AnalysisSamples_JetTightIDNoLepVeto_Full/MC/2023preBPix/QCDMu/QCD_PT-80to120_MuEnrichedPt5_TuneCP5_13p6TeV_pythia8",
+        #Full production samples 2023 pre-BPix
+        # "/eos/project/r/rtu-topanalysis/cmunozdi/AnalysisSamples_JetTightIDNoLepVeto_Full/MC/2023preBPix/QCDMu/QCD_PT-170to300_MuEnrichedPt5_TuneCP5_13p6TeV_pythia8",
+        # "/eos/project/r/rtu-topanalysis/cmunozdi/AnalysisSamples_JetTightIDNoLepVeto_Full/MC/2023preBPix/QCDMu/QCD_PT-300to470_MuEnrichedPt5_TuneCP5_13p6TeV_pythia8",
+        # "/eos/project/r/rtu-topanalysis/cmunozdi/AnalysisSamples_JetTightIDNoLepVeto_Full/MC/2023preBPix/QCDMu/QCD_PT-470to600_MuEnrichedPt5_TuneCP5_13p6TeV_pythia8",
+        # "/eos/project/r/rtu-topanalysis/cmunozdi/AnalysisSamples_JetTightIDNoLepVeto_Full/MC/2023preBPix/QCDMu/QCD_PT-600to800_MuEnrichedPt5_TuneCP5_13p6TeV_pythia8",
+        # "/eos/project/r/rtu-topanalysis/cmunozdi/AnalysisSamples_JetTightIDNoLepVeto_Full/MC/2023preBPix/QCDMu/QCD_PT-800to1000_MuEnrichedPt5_TuneCP5_13p6TeV_pythia8",
+        # "/eos/project/r/rtu-topanalysis/cmunozdi/AnalysisSamples_JetTightIDNoLepVeto_Full/MC/2023preBPix/QCDMu/QCD_PT-1000_MuEnrichedPt5_TuneCP5_13p6TeV_pythia8",
+        # "/eos/project/r/rtu-topanalysis/cmunozdi/AnalysisSamples_JetTightIDNoLepVeto_Full/MC/2023preBPix/QCDMu/QCD_PT-120to170_MuEnrichedPt5_TuneCP5_13p6TeV_pythia8",
+        # "/eos/project/r/rtu-topanalysis/cmunozdi/AnalysisSamples_JetTightIDNoLepVeto_Full/MC/2023preBPix/QCDMu/QCD_PT-80to120_MuEnrichedPt5_TuneCP5_13p6TeV_pythia8",
+
+        #Full production samples 2022 post-EE
+        "/eos/project/r/rtu-topanalysis/cmunozdi/AnalysisSamples_JetTightIDNoLepVeto_Full/MC/2022postEE/QCDMu/QCD_PT-50to80_MuEnrichedPt5_TuneCP5_13p6TeV_pythia8",
+        "/eos/project/r/rtu-topanalysis/cmunozdi/AnalysisSamples_JetTightIDNoLepVeto_Full/MC/2022postEE/QCDMu/QCD_PT-80to120_MuEnrichedPt5_TuneCP5_13p6TeV_pythia8",
+        "/eos/project/r/rtu-topanalysis/cmunozdi/AnalysisSamples_JetTightIDNoLepVeto_Full/MC/2022postEE/QCDMu/QCD_PT-120to170_MuEnrichedPt5_TuneCP5_13p6TeV_pythia8",
+        "/eos/project/r/rtu-topanalysis/cmunozdi/AnalysisSamples_JetTightIDNoLepVeto_Full/MC/2022postEE/QCDMu/QCD_PT-170to300_MuEnrichedPt5_TuneCP5_13p6TeV_pythia8",
+        "/eos/project/r/rtu-topanalysis/cmunozdi/AnalysisSamples_JetTightIDNoLepVeto_Full/MC/2022postEE/QCDMu/QCD_PT-300to470_MuEnrichedPt5_TuneCP5_13p6TeV_pythia8",
+        "/eos/project/r/rtu-topanalysis/cmunozdi/AnalysisSamples_JetTightIDNoLepVeto_Full/MC/2022postEE/QCDMu/QCD_PT-470to600_MuEnrichedPt5_TuneCP5_13p6TeV_pythia8",
+        "/eos/project/r/rtu-topanalysis/cmunozdi/AnalysisSamples_JetTightIDNoLepVeto_Full/MC/2022postEE/QCDMu/QCD_PT-600to800_MuEnrichedPt5_TuneCP5_13p6TeV_pythia8",
+        "/eos/project/r/rtu-topanalysis/cmunozdi/AnalysisSamples_JetTightIDNoLepVeto_Full/MC/2022postEE/QCDMu/QCD_PT-800to1000_MuEnrichedPt5_TuneCP5_13p6TeV_pythia8",
+        "/eos/project/r/rtu-topanalysis/cmunozdi/AnalysisSamples_JetTightIDNoLepVeto_Full/MC/2022postEE/QCDMu/QCD_PT-1000_MuEnrichedPt5_TuneCP5_13p6TeV_pythia8",
+        "/eos/project/r/rtu-topanalysis/cmunozdi/AnalysisSamples_JetTightIDNoLepVeto_Full/MC/2022postEE/QCDMu/QCD_PT-120to170_MuEnrichedPt5_TuneCP5_13p6TeV_pythia8",
+        "/eos/project/r/rtu-topanalysis/cmunozdi/AnalysisSamples_JetTightIDNoLepVeto_Full/MC/2022postEE/QCDMu/QCD_PT-80to120_MuEnrichedPt5_TuneCP5_13p6TeV_pythia8",        
 
 
 
@@ -327,8 +379,12 @@ if is_dy:
         # "/eos/project/r/rtu-topanalysis/cmunozdi/AnalysisSamples_JetTightIDNoLepVeto/MC/2023preBPix/DY/DYto2L-2Jets_MLL-10to50_TuneCP5_13p6TeV_amcatnloFXFX-pythia8",
         # "/eos/project/r/rtu-topanalysis/cmunozdi/AnalysisSamples_JetTightIDNoLepVeto/MC/2023preBPix/DY/DYto2L-2Jets_MLL-50_TuneCP5_13p6TeV_amcatnloFXFX-pythia8",
 
-        #Full production samples
-        "/eos/project/r/rtu-topanalysis/cmunozdi/AnalysisSamples_JetTightIDNoLepVeto_Full/MC/2023preBPix/DY/DYto2L-2Jets_MLL-50_TuneCP5_13p6TeV_amcatnloFXFX-pythia8",
+        #Full production samples 2023 pre-BPix
+        # "/eos/project/r/rtu-topanalysis/cmunozdi/AnalysisSamples_JetTightIDNoLepVeto_Full/MC/2023preBPix/DY/DYto2L-2Jets_MLL-50_TuneCP5_13p6TeV_amcatnloFXFX-pythia8",
+
+        #Full production samples 2022 post-EE
+        "/eos/project/r/rtu-topanalysis/cmunozdi/AnalysisSamples_JetTightIDNoLepVeto_Full/MC/2022postEE/DY/DYto2L-2Jets_MLL-10to50_TuneCP5_13p6TeV_amcatnloFXFX-pythia8",
+        "/eos/project/r/rtu-topanalysis/cmunozdi/AnalysisSamples_JetTightIDNoLepVeto_Full/MC/2022postEE/DY/DYto2L-2Jets_MLL-50_TuneCP5_13p6TeV_amcatnloFXFX-pythia8",        
 
 
     ]
@@ -350,10 +406,15 @@ if is_vv:
         # "/eos/project/r/rtu-topanalysis/cmunozdi/AnalysisSamples_JetTightIDNoLepVeto/MC/2023preBPix/VV/WZ_TuneCP5_13p6TeV_pythia8",
         # "/eos/project/r/rtu-topanalysis/cmunozdi/AnalysisSamples_JetTightIDNoLepVeto/MC/2023preBPix/VV/ZZ_TuneCP5_13p6TeV_pythia8",
 
-        #Full production samples
-        "/eos/project/r/rtu-topanalysis/cmunozdi/AnalysisSamples_JetTightIDNoLepVeto_Full/MC/2023preBPix/VV/WW_TuneCP5_13p6TeV_pythia8",
-        "/eos/project/r/rtu-topanalysis/cmunozdi/AnalysisSamples_JetTightIDNoLepVeto_Full/MC/2023preBPix/VV/WZ_TuneCP5_13p6TeV_pythia8",
-        "/eos/project/r/rtu-topanalysis/cmunozdi/AnalysisSamples_JetTightIDNoLepVeto_Full/MC/2023preBPix/VV/ZZ_TuneCP5_13p6TeV_pythia8"
+        #Full production samples 2023 pre-BPix
+        # "/eos/project/r/rtu-topanalysis/cmunozdi/AnalysisSamples_JetTightIDNoLepVeto_Full/MC/2023preBPix/VV/WW_TuneCP5_13p6TeV_pythia8",
+        # "/eos/project/r/rtu-topanalysis/cmunozdi/AnalysisSamples_JetTightIDNoLepVeto_Full/MC/2023preBPix/VV/WZ_TuneCP5_13p6TeV_pythia8",
+        # "/eos/project/r/rtu-topanalysis/cmunozdi/AnalysisSamples_JetTightIDNoLepVeto_Full/MC/2023preBPix/VV/ZZ_TuneCP5_13p6TeV_pythia8",
+
+        #Full production samples 2022 post-EE
+        "/eos/project/r/rtu-topanalysis/cmunozdi/AnalysisSamples_JetTightIDNoLepVeto_Full/MC/2022postEE/VV/WW_TuneCP5_13p6TeV_pythia8",
+        "/eos/project/r/rtu-topanalysis/cmunozdi/AnalysisSamples_JetTightIDNoLepVeto_Full/MC/2022postEE/VV/WZ_TuneCP5_13p6TeV_pythia8",
+        "/eos/project/r/rtu-topanalysis/cmunozdi/AnalysisSamples_JetTightIDNoLepVeto_Full/MC/2022postEE/VV/ZZ_TuneCP5_13p6TeV_pythia8",        
     ]
 
 print("Initiating the conversion of RDataFrames to DataFrames.")
@@ -434,7 +495,7 @@ ROOT::RVec<bool> pass_JetIdTightLepVeto(const ROOT::RVec<float>& Jet_eta,
 """)
 
 
-def apply_event_selection(rdfs, isMC=True, TWPbtag2023=0.6553):
+def apply_event_selection(rdfs, isMC=True, TWPbtag2023=0.73):
     filtered_rdfs = []
 
     for rdf in rdfs:
@@ -460,6 +521,7 @@ def apply_event_selection(rdfs, isMC=True, TWPbtag2023=0.6553):
             rdf
             # 1. Detector selection
             .Filter("pass_detector_selection", "Detector selection") #n_leptons == 1 && n_jets > 0 && pt_miss > 37.5 && n_fatjets > 0
+            .Define("Jet_vetoMap", "is_event_not_vetoed_by_jetVetoMap(Jet_eta, Jet_phi)")
 
 #             .Filter("lepton.n_lep==1")
 
@@ -542,19 +604,19 @@ def apply_event_selection(rdfs, isMC=True, TWPbtag2023=0.6553):
             # .Redefine("Jet_passAllJetIdTightLepVeto", "std::vector<bool>(Jet_passAllJetIdTightLepVeto.begin(), Jet_passAllJetIdTightLepVeto.end())") \
             .Define(
                 "n_bjets",
-                f"Sum((Jet_pt > 30) &&( abs(Jet_eta) < 2.4) && (Jet_btagDeepFlavB > {TWPbtag2023}) && Jet_passJetIdTightLepVeto)"
+                f"Sum((Jet_pt > 30) &&( abs(Jet_eta) < 2.4) && (Jet_btagDeepFlavB > {TWPbtag2023}) && Jet_passJetIdTight)"
             )
             .Define(
                 "bjet_pt",
-                f"Jet_pt[(Jet_pt > 30) &&( abs(Jet_eta) < 2.4) && (Jet_btagDeepFlavB > {TWPbtag2023}) && Jet_passJetIdTightLepVeto]"
+                f"Jet_pt[(Jet_pt > 30) &&( abs(Jet_eta) < 2.4) && (Jet_btagDeepFlavB > {TWPbtag2023}) && Jet_passJetIdTight]"
             )
             .Define(
                 "bjet_eta",
-                f"Jet_eta[(Jet_pt > 30) &&( abs(Jet_eta) < 2.4) && (Jet_btagDeepFlavB > {TWPbtag2023}) && Jet_passJetIdTightLepVeto]"
+                f"Jet_eta[(Jet_pt > 30) &&( abs(Jet_eta) < 2.4) && (Jet_btagDeepFlavB > {TWPbtag2023}) && Jet_passJetIdTight]"
             )
             .Define(
                 "bjet_btag",
-                f"Jet_btagDeepFlavB[(Jet_pt > 30) &&( abs(Jet_eta) < 2.4) && (Jet_btagDeepFlavB > {TWPbtag2023}) && Jet_passJetIdTightLepVeto]"
+                f"Jet_btagDeepFlavB[(Jet_pt > 30) &&( abs(Jet_eta) < 2.4) && (Jet_btagDeepFlavB > {TWPbtag2023}) && Jet_passJetIdTight]"
             )
             # .Filter("n_bjets >= 1", "At least one b-tagged jet with pt > 30 GeV and |eta| < 2.4 passing tight ID with lepton veto")
             # .Filter(
@@ -562,7 +624,7 @@ def apply_event_selection(rdfs, isMC=True, TWPbtag2023=0.6553):
             #     "4 jets at least"
             # )
 
-
+            .Define("n_jets", "Sum(Jet_pt > 30 && abs(Jet_eta) < 2.4 && Jet_passJetIdTight)")
             # 3. pt_miss > 50
 #             .Filter("pt_miss > 50", "Missing pt selection")
             # .Filter("PuppiMET_pt > 50", "Missing pt selection")
@@ -591,7 +653,7 @@ def apply_event_selection(rdfs, isMC=True, TWPbtag2023=0.6553):
 
 #             .Filter("HLT_Mu50", "triggerMuons")
             .Define("pass_trigger",
-                    f"(abs(lepton.pdgId[selected_lepton_idx]) == 13 && HLT_Mu50)") # || \
+                    f"(abs(lepton.pdgId[selected_lepton_idx]) == 13 && (HLT_Mu50))") # || \
 #                      (abs(lepton.pdgId[0]) == 11 && lepton.pt[0] > 120 && (HLT_Ele115_CaloIdVT_GsfTrkIdT || HLT_Photon175)) || \
 #                      (abs(lepton.pdgId[0]) == 11 && lepton.pt[0] < 120 && HLT_Ele30_WPTight_Gsf)")
             # .Filter("pass_trigger", "Trigger selection")
@@ -602,6 +664,9 @@ def apply_event_selection(rdfs, isMC=True, TWPbtag2023=0.6553):
 
         )
         if isMC:
+            
+            # MET filters
+            # rdf_filtered = rdf_filtered.Define("pass_MET_filters_2023", "Flag_goodVertices && Flag_globalSuperTightHalo2016Filter && Flag_EcalDeadCellTriggerPrimitiveFilter && Flag_BadPFMuonFilter && Flag_BadPFMuonDzFilter && Flag_hfNoisyHitsFilter && Flag_eeBadScFilter")
             # Apply b-tagging correction if it is MC
             branches = set(rdf_filtered.GetColumnNames())
             if "btagWeight" in branches:
@@ -632,7 +697,7 @@ def apply_event_selection(rdfs, isMC=True, TWPbtag2023=0.6553):
     return filtered_rdfs
 
 
-columns_mc = ["eventWeight", "lepton_trg_pt", "lepton_tuneP_pt", "lepton_trg_eta", "lepton_trg_jet_pt", "pass_trigger", "PUReweighting", "pass_MET_filters_2023", "Num_lep_above_15", "num_muon_selected", "is_muon_trg", "PuppiMET_pt", "n_bjets", "TopPtWeight_NNLOpNLOEW", "muoWeight", "btagWeight", "topjets.pt", "num_subjets_in_topjet_pt30_eta2p5", "topjets.n_subjets", "Jet_pt", "Jet_eta", "Jet_hadronFlavour", "Jet_btagDeepFlavB", "Pileup_nTrueInt"]
+columns_mc = ["eventWeight", "lepton_trg_pt", "lepton_tuneP_pt", "lepton_trg_eta", "lepton_trg_jet_pt", "pass_trigger", "PUReweighting", "pass_MET_filters_2022", "Num_lep_above_15", "num_muon_selected", "is_muon_trg", "PuppiMET_pt", "n_bjets", "bjet_pt", "bjet_eta", "n_jets", "TopPtWeight_NNLOpNLOEW", "muoWeight", "btagWeight", "topjets.pt", "topjets.eta", "topjets.mass", "num_subjets_in_topjet_pt30_eta2p5", "topjets.n_subjets", "subjets.pt", "subjets.eta", "Jet_pt", "Jet_eta", "Jet_phi", "Jet_vetoMap", "Jet_hadronFlavour", "Jet_btagDeepFlavB", "Pileup_nTrueInt", "HLT_HighPtTkMu100", "HLT_CascadeMu100", "HLT_IsoMu24", "HLT_Mu50"]
 
 # columns_mc = ["eventWeight", "lepton", "lepton_trg_pt", "lepton_tuneP_pt", "lepton_trg_eta", "lepton_trg_jet_pt", "pass_trigger", "PUReweighting", "pass_MET_filters_2023", "Num_lep_above_15", "num_muon_selected", "is_muon_trg", "PuppiMET_pt", "n_bjets", "TopPtWeight_NNLOpNLOEW", "muoWeight", "btagWeight", "topjets.pt", "num_subjets_in_topjet_pt30_eta2p5", "topjets.n_subjets", "Jet_pt", "Jet_eta", "Jet_hadronFlavour", "Jet_btagDeepFlavB", "Pileup_nTrueInt"]
 
@@ -642,7 +707,7 @@ columns_data = [col for col in columns_mc if col not in ["eventWeight", "btagWei
 # DATA: MUON 0
 if is_data0:
     print("Creating RDataFrames for Data 0 samples...")
-    input_dirs_data0 = "/eos/project/r/rtu-topanalysis/cmunozdi/AnalysisSamples_JetTightIDNoLepVeto_Full/Data/2023preBPix/Muon0_CorrectedJEC/Run2023C-22Sep2023_v*" #-v1_BTV_Run3_2023_Comm_MINIAODv4/" #"/eos/project/r/rtu-topanalysis/cmunozdi/AnalysisSamples/Data/2023preBPix/Muon0/**"  #"/eos/project/r/rtu-topanalysis/cmunozdi/AnalysisSamples_JetTightID/Data/2023preBPix/Muon0/**" #
+    input_dirs_data0 = "/eos/project/r/rtu-topanalysis/cmunozdi/AnalysisSamples_JetTightIDNoLepVeto_Full/Data/2022postEE/Muon/Run2022G-22Sep2023-v1_BTV_Run3_2022_Comm_MINIAODv4" #"/eos/project/r/rtu-topanalysis/cmunozdi/AnalysisSamples_JetTightIDNoLepVeto_Full/Data/2023preBPix/Muon0_CorrectedJEC/Run2023C-22Sep2023_v3*" #-v1_BTV_Run3_2023_Comm_MINIAODv4/" #"/eos/project/r/rtu-topanalysis/cmunozdi/AnalysisSamples/Data/2023preBPix/Muon0/**"  #"/eos/project/r/rtu-topanalysis/cmunozdi/AnalysisSamples_JetTightID/Data/2023preBPix/Muon0/**" #
     root_files_data0 = glob(os.path.join(input_dirs_data0, "**/**/*.root"))#"250818*/**/*.root")) #"**/**/*.root"))
     rdf_data0 = ROOT.RDataFrame("Events", root_files_data0)
 
@@ -666,8 +731,8 @@ if is_data0:
 
     print("Saving DataFrame of Data 0 in pickle format...")
     # Using general variable output path    
-    df_data0.to_pickle(f"{output_dir}/data0.pkl")
-    print("File saved: data0_v1.pkl")
+    df_data0.to_pickle(f"{output_dir}/dataE.pkl")
+    print("File saved: dataE.pkl")
     print("Number of events: ", len(df_data0))
     del rdf_data0  # Release memory
     if OnlyGeneratePKLFiles:
@@ -676,61 +741,68 @@ else:
     if(not OnlyGeneratePKLFiles):
         print("Loading DataFrame of Data 0 from existing pickle file...")
         # Load several pkl and concatenate them
-        pkl_files_data0 = ["/eos/project/r/rtu-topanalysis/cmunozdi/DataFramesPKL/2023preBPix/OnlyPreProductionSelectionMuonV1/data0_v1.pkl",
-                            "/eos/project/r/rtu-topanalysis/cmunozdi/DataFramesPKL/2023preBPix/OnlyPreProductionSelectionMuonV2/data0_v2.pkl",
-                            "/eos/project/r/rtu-topanalysis/cmunozdi/DataFramesPKL/2023preBPix/OnlyPreProductionSelectionMuonV3/data0_v3.pkl"]
+        pkl_files_data0 = [
+                            # f"{output_dir}/data0_v1.pkl",
+                            # f"{output_dir}/data0_v2.pkl",
+                            # f"{output_dir}/data0_v3.pkl",
+                            # f"{output_dir}/data0_v4.pkl",
+                            f"{output_dir}/dataE.pkl"
+                          ]
 
         dfs = [pd.read_pickle(pkl) for pkl in pkl_files_data0]
         df_data0 = pd.concat(dfs, ignore_index=True)
 
         del dfs  # Release memory from the list of DataFrames
 
-        df_data0.to_pickle(f"{output_dir}/data0_v1to3.pkl")
+        # df_data0.to_pickle(f"{output_dir}/data0_v1to3.pkl")
         print("Completion of loading for Data 0.")
 
-# DATA: MUON 1
-if is_data1:
-    print("Creating RDataFrames for Data 1 samples...")
-    input_dirs_data1 = "/eos/project/r/rtu-topanalysis/cmunozdi/AnalysisSamples_JetTightIDNoLepVeto_Full/Data/2023preBPix/Muon1_CorrectedJEC/Run2023C-22Sep2023_v*" #4-v2_BTV_Run3_2023_Comm_MINIAODv4/" #"/eos/project/r/rtu-topanalysis/cmunozdi/AnalysisSamples/Data/2023preBPix/Muon1/**" #"/eos/project/r/rtu-topanalysis/cmunozdi/AnalysisSamples_JetTightID/Data/2023preBPix/Muon1/**" #
-    root_files_data1 = glob(os.path.join(input_dirs_data1, "**/**/*.root"))#"250818*/**/*.root")) #"**/**/*.root"))
-    rdf_data1 = ROOT.RDataFrame("Events", root_files_data1)
+# # DATA: MUON 1
+# if is_data1:
+#     print("Creating RDataFrames for Data 1 samples...")
+#     input_dirs_data1 = "/eos/project/r/rtu-topanalysis/cmunozdi/AnalysisSamples_JetTightIDNoLepVeto_Full/Data/2023preBPix/Muon1_CorrectedJEC/Run2023C-22Sep2023_v3*" #4-v2_BTV_Run3_2023_Comm_MINIAODv4/" #"/eos/project/r/rtu-topanalysis/cmunozdi/AnalysisSamples/Data/2023preBPix/Muon1/**" #"/eos/project/r/rtu-topanalysis/cmunozdi/AnalysisSamples_JetTightID/Data/2023preBPix/Muon1/**" #
+#     root_files_data1 = glob(os.path.join(input_dirs_data1, "**/**/*.root"))#"250818*/**/*.root")) #"**/**/*.root"))
+#     rdf_data1 = ROOT.RDataFrame("Events", root_files_data1)
 
-    print("Applying event selection to Data 1...")
-    rdf_data1 = apply_event_selection([rdf_data1], isMC=False)[0]
-    if save_roots_boosted_selection:
-        columns = list(rdf_data0.GetColumnNames())
-        rdf_data1.Snapshot("Events", "/eos/project/r/rtu-topanalysis/cmunozdi/DataFramesPKL/2023preBPix/OnlyPreProductionSelectionMuonV2/rootFilesBoostedSelection/data1_boosted_selection.root", columns)
+#     print("Applying event selection to Data 1...")
+#     rdf_data1 = apply_event_selection([rdf_data1], isMC=False)[0]
+#     if save_roots_boosted_selection:
+#         columns = list(rdf_data0.GetColumnNames())
+#         rdf_data1.Snapshot("Events", "/eos/project/r/rtu-topanalysis/cmunozdi/DataFramesPKL/2023preBPix/OnlyPreProductionSelectionMuonV2/rootFilesBoostedSelection/data1_boosted_selection.root", columns)
 
-    print("Initiating the conversion of RDataFrames to DataFrames for Data 1...")
-    df_data1 = pd.DataFrame(rdf_data1.AsNumpy(columns=columns_data))
-    print("Conversion completed for Data 1.")
+#     print("Initiating the conversion of RDataFrames to DataFrames for Data 1...")
+#     df_data1 = pd.DataFrame(rdf_data1.AsNumpy(columns=columns_data))
+#     print("Conversion completed for Data 1.")
 
-    print("Saving DataFrame of Data 1 in pickle format...")
-    df_data1.to_pickle(f"{output_dir}/data1.pkl")
-    print("File saved: data1_v1.pkl")
-    print("Number of events: ", len(df_data1))
-    del rdf_data1  # Release memory
-    if OnlyGeneratePKLFiles:
-        del df_data1
-else:
-    if(not OnlyGeneratePKLFiles):
-        print("Loading DataFrame of Data 1 from existing pickle file...")
-        # Load several pkl and concatenate them
-        pkl_files_data1 = ["/eos/project/r/rtu-topanalysis/cmunozdi/DataFramesPKL/2023preBPix/OnlyPreProductionSelectionMuonV1/data1_v1.pkl",
-                            "/eos/project/r/rtu-topanalysis/cmunozdi/DataFramesPKL/2023preBPix/OnlyPreProductionSelectionMuonV2/data1_v2.pkl",
-                            "/eos/project/r/rtu-topanalysis/cmunozdi/DataFramesPKL/2023preBPix/OnlyPreProductionSelectionMuonV3/data1_v3.pkl"]
-        dfs = [pd.read_pickle(pkl) for pkl in pkl_files_data1]
-        df_data1 = pd.concat(dfs, ignore_index=True)
-        del dfs  # Release memory from the list of DataFrames
+#     print("Saving DataFrame of Data 1 in pickle format...")
+#     df_data1.to_pickle(f"{output_dir}/data1_v3.pkl")
+#     print("File saved: data1_v3.pkl")
+#     print("Number of events: ", len(df_data1))
+#     del rdf_data1  # Release memory
+#     if OnlyGeneratePKLFiles:
+#         del df_data1
+# else:
+#     if(not OnlyGeneratePKLFiles):
+#         print("Loading DataFrame of Data 1 from existing pickle file...")
+#         # Load several pkl and concatenate them
+#         pkl_files_data1 = [
+#                             f"{output_dir}/data1_v1.pkl",
+#                             f"{output_dir}/data1_v2.pkl",
+#                             f"{output_dir}/data1_v3.pkl",
+#                             f"{output_dir}/data1_v4.pkl"
+#                           ]
+#         dfs = [pd.read_pickle(pkl) for pkl in pkl_files_data1]
+#         df_data1 = pd.concat(dfs, ignore_index=True)
+#         del dfs  # Release memory from the list of DataFrames
 
-        df_data1.to_pickle(f"{output_dir}/data1_v1to3.pkl")
-        print("Completion of loading for Data 1.")
+#         # df_data1.to_pickle(f"{output_dir}/data1_v1to3.pkl")
+#         print("Completion of loading for Data 1.")
 if not OnlyGeneratePKLFiles:
-    df_data = pd.concat([df_data0, df_data1], ignore_index=True)
+    df_data = df_data0 #pd.concat([df_data0, df_data1], ignore_index=True)
     del df_data0
-    del df_data1
+    # del df_data1
 
-factor = luminosity / (18.062658998 * 1000)
+factor = 1. #luminosity / (18.062658998 * 1000)
 
 
 # MC: SINGLE TOP
@@ -758,22 +830,23 @@ if is_singletop:
     print("File saved: singletop.pkl")
     print("Number of events: ", len(df_singletop))
     del rdfs_singletop  # Release memory
+    
     if OnlyGeneratePKLFiles:
         del df_singletop
+    else: df_singletop['eventWeight'] = df_singletop['eventWeight'] * factor
 else:
     if(not OnlyGeneratePKLFiles):
         print("Loading DataFrame of Single Top from existing pickle file...")
         df_singletop = pd.read_pickle(f"{output_dir}/singletop.pkl")
         df_singletop['eventWeight'] = df_singletop['eventWeight'] * factor
-        df_singletop.to_pickle(f"{output_dir}/singletop.pkl")
+        # df_singletop.to_pickle(f"{output_dir}/singletop.pkl")
         print("Completion of loading for Single Top.")
 
 # MC: W+JETS
 if is_wjets:
     for i, (path, xs) in enumerate(zip(input_dirs_wjets, cross_sections_wjets)):
-        if i > 2: continue
         print(f"Processing sample {i+1}/{len(input_dirs_wjets)}: {path}")
-        rdf = create_rdf_with_weights(path, xs, luminosity)
+        rdf = create_rdf_with_weights(path, xs, luminosity)#, max_files=5)
         rdf = [rdf]  # put in list to use apply_event_selection
         rdf = apply_event_selection(rdf)
         rdf = rdf[0]
@@ -781,6 +854,7 @@ if is_wjets:
         pickle_path = f"{output_dir}/wjets_part{i}.pkl"
         df_part.to_pickle(pickle_path)
         print("File saved:", pickle_path)
+
         del df_part, rdf
         ROOT.gSystem.ProcessEvents()  # Clean ROOT buffers
 
@@ -790,6 +864,9 @@ if is_wjets:
 
         # Read all pickle files into a list of DataFrames
         dfs = [pd.read_pickle(pkl) for pkl in pkl_files]
+
+        for i, df in enumerate(dfs):
+            df['eventWeight'] = df['eventWeight'] * factor
 
         # Concatenate all DataFrames into one
         df_wjets = pd.concat(dfs, ignore_index=True)
@@ -840,7 +917,7 @@ else:
         dfs = [pd.read_pickle(pkl) for pkl in pkl_files]
         for i, df in enumerate(dfs):
             df['eventWeight'] = df['eventWeight'] * factor
-            df.to_pickle(f"{output_dir}/wjets_part{i}.pkl")
+            # df.to_pickle(f"{output_dir}/wjets_part{i}.pkl")
 
         # Concatenate all DataFrames into one
         df_wjets = pd.concat(dfs, ignore_index=True)
@@ -878,12 +955,13 @@ if is_ttbar_semi:
     del rdfs_ttbar  # Release memory
     if OnlyGeneratePKLFiles:
         del df_ttbar
+    else: df_ttbar['eventWeight'] = df_ttbar['eventWeight'] * factor
 else:
     if (not OnlyGeneratePKLFiles):
         print("Loading DataFrame of TTBar semileptonic from existing pickle file...")
         df_ttbar = pd.read_pickle(f"{output_dir}/ttbar_semi.pkl")
         df_ttbar['eventWeight'] = df_ttbar['eventWeight'] * factor
-        df_ttbar.to_pickle(f"{output_dir}/ttbar_semi.pkl")
+        # df_ttbar.to_pickle(f"{output_dir}/ttbar_semi.pkl")
         print("Loading completed for TTBar semileptonic.")
 
     # # Suponiendo que el peso total se llama "weight" (ajusta si es distinto)
@@ -917,14 +995,16 @@ if is_ttbar_bck:
     print("File saved: ttbar_bck.pkl")
     print("Number of events: ", len(df_ttbar_bck))
     del rdfs_ttbar_bck  # Release memory
-    if OnlyGeneratePKLFiles:
+    if not OnlyGeneratePKLFiles:
+        df_ttbar_bck['eventWeight'] = df_ttbar_bck['eventWeight'] * factor
+    else:
         del df_ttbar_bck
 else:
     if (not OnlyGeneratePKLFiles):
         print("Loading DataFrame of TTBar Background from existing pickle file...")
         df_ttbar_bck = pd.read_pickle(f"{output_dir}/ttbar_bck.pkl")
         df_ttbar_bck['eventWeight'] = df_ttbar_bck['eventWeight'] * factor
-        df_ttbar_bck.to_pickle(f"{output_dir}/ttbar_bck.pkl")
+        # df_ttbar_bck.to_pickle(f"{output_dir}/ttbar_bck.pkl")
         print("Loading completed for TTBar Background.")
 
     # df_ttbar_bck["eventWeight"] = df_ttbar_bck["eventWeight"] / 0.73
@@ -957,14 +1037,16 @@ if is_qcdmu:
     print("File saved: qcdmu.pkl")
     print("Number of events: ", len(df_qcdmu))
     del rdfs_qcdmu  # Release memory
-    if OnlyGeneratePKLFiles:
+    if not OnlyGeneratePKLFiles:
+        df_qcdmu['eventWeight'] = df_qcdmu['eventWeight'] * factor
+    else:
         del df_qcdmu
 else:
     if (not OnlyGeneratePKLFiles):
         print("Loading DataFrame of QCDMu from existing pickle file...")
         df_qcdmu = pd.read_pickle(f"{output_dir}/qcdmu.pkl")
         df_qcdmu['eventWeight'] = df_qcdmu['eventWeight'] * factor
-        df_qcdmu.to_pickle(f"{output_dir}/qcdmu.pkl")
+        # df_qcdmu.to_pickle(f"{output_dir}/qcdmu.pkl")
         print("Loading completed for QCDMu.")
 
 # MC: DY
@@ -992,14 +1074,16 @@ if is_dy:
     print("File saved: dy.pkl")
     print("Number of events dy: ", len(df_dy))
     del rdfs_dy  # Release memory
-    if OnlyGeneratePKLFiles:
+    if not OnlyGeneratePKLFiles:
+        df_dy['eventWeight'] = df_dy['eventWeight'] * factor
+    else:
         del df_dy
 else:
     if (not OnlyGeneratePKLFiles):
         print("Loading DataFrame of DY from existing pickle file    ...")
         df_dy = pd.read_pickle(f"{output_dir}/dy.pkl")
         df_dy['eventWeight'] = df_dy['eventWeight'] * factor
-        df_dy.to_pickle(f"{output_dir}/dy.pkl")
+        # df_dy.to_pickle(f"{output_dir}/dy.pkl")
         print("Loading completed for DY.")
 
 # MC: VV
@@ -1027,14 +1111,16 @@ if is_vv:
     print("File saved: vv.pkl")
     print("Number of events vv: ", len(df_vv))
     del rdfs_vv  # Release memory
-    if OnlyGeneratePKLFiles:
+    if not OnlyGeneratePKLFiles:
+        df_vv['eventWeight'] = df_vv['eventWeight'] * factor
+    else:
         del df_vv
 else:
     if (not OnlyGeneratePKLFiles):
         print("Loading DataFrame of VV from existing pickle file...")
         df_vv = pd.read_pickle(f"{output_dir}/vv.pkl")
         df_vv['eventWeight'] = df_vv['eventWeight'] * factor
-        df_vv.to_pickle(f"{output_dir}/vv.pkl")
+        # df_vv.to_pickle(f"{output_dir}/vv.pkl")
         print("Loading completed for VV.")
 
 if OnlyGeneratePKLFiles:
@@ -1132,8 +1218,9 @@ def plot_variable(
     ylabel="Events",
     title=None,
     print_percentages=False,
-    output_dir=f"{output_dir}/plots",
-    nth_element=None  # For plotting the nth element of a list-like branch
+    output_dir=f"{output_dir}/plots{sufix_plotdir}",
+    nth_element=None,  # For plotting the nth element of a list-like branch
+    cut_id = None, #Adding cut id to distinguish different plots
 ):
     if title is None:
         title = branch
@@ -1207,7 +1294,7 @@ def plot_variable(
     print("Adding labels and luminosity...")
     ax_main.text(
         0, 1.05,
-        "Private work (CMS Data)",
+        f"Private work (CMS Data) {'cut=' + str(cut_id) if cut_id is not None else ''}",
         fontsize=24,
         verticalalignment='top',
         horizontalalignment='left',
@@ -1315,6 +1402,8 @@ def plot_variable(
         ax_main.get_yaxis().get_offset_text().set_x(-0.13)
         ax_main.get_yaxis().get_offset_text().set_y(1.25)
         ax_main.ticklabel_format(axis="y", style="sci", scilimits=(0, 0))
+    #set always ymin = 0
+    ax_main.set_ylim(bottom=0)
     handles, labels = ax_main.get_legend_handles_labels()
     ax_main.legend(handles[::-1], labels[::-1], frameon=False, fontsize=16) #loc="upper right", bbox_to_anchor=(1,1), borderaxespad=0,
     ax_main.grid(True, linestyle="--", alpha=0.5)
@@ -1582,13 +1671,16 @@ def filter_by_cut(df, cut_id):
     if cut_id == 0:
         return df
     if cut_id > 0:
-        df = df[df['pass_trigger'] == True]
+        df = df[
+                (df['is_muon_trg'] == True) & 
+                ((df['HLT_Mu50']) & (df['Jet_vetoMap'])) #"HLT_HighPtTkMu100", "HLT_CascadeMu100", "HLT_IsoMu24", "HLT_Mu50"
+            ]
     if cut_id > 1:
         if 'PUReweighting' in df.columns:
             mask = np.isfinite(df['PUReweighting'])
             df.loc[mask, 'eventWeight'] = df.loc[mask, 'PUReweighting'] * df.loc[mask, 'eventWeight']
     if cut_id > 2:
-        df = df[df['pass_MET_filters_2023'] == True]
+        df = df[df['pass_MET_filters_2022'] == True]
     if cut_id > 3:
         df = df[
                 (df['num_muon_selected'] == 1) &
@@ -1650,24 +1742,132 @@ for cut_id in range(12):
 
     #Lepton pt
     plot_variable( branch="lepton_trg_pt", dfs_mc=[df_ttbar_muon, df_ttbar_bck_muon, df_singletop_muon, df_wjets_muon, df_qcdmu_muon, df_dy_muon, df_vv_muon][::-1], df_data=df_data_muon,
-                labels_mc=[r'$t\overline{t}\rightarrow l\nu2q$', r"$t\overline{t}\rightarrow others$",  "SingleTop", "W+jets", "QCD", "DY", "VV"][::-1], colors_mc=["red", "tomato", "gold", "lime", "deepskyblue", "blue", "indigo"][::-1],
+                labels_mc=[r'$t\overline{t}\rightarrow l\nu2q$', r"$t\overline{t}\rightarrow others$",  "SingleTop", "W+jets", "QCD", "DY", "VV"][::-1], colors_mc=["red", "tomato", "gold", "lime", "deepskyblue", "blue", "indigo"][::-1], cut_id=cut_id,
                 bins=70, logy=False, xlim=(0, 400), #ylim=(0.75, 1e3),
-                xlabel=r'$p_T$ muon [GeV]', title=f'{cut_id}_muon_pt_{cut_names[cut_id]}'
+                xlabel=r'$p_T$ muon [GeV]', title=f'muon_pt_{cut_id}_{cut_names[cut_id]}'
                 )
 
     #Lepton TuneP pt              
     plot_variable( branch="lepton_tuneP_pt", dfs_mc=[df_ttbar_muon, df_ttbar_bck_muon, df_singletop_muon, df_wjets_muon, df_qcdmu_muon, df_dy_muon, df_vv_muon][::-1], df_data=df_data_muon,
-                labels_mc=[r'$t\overline{t}\rightarrow l\nu2q$', r"$t\overline{t}\rightarrow others$",  "SingleTop", "W+jets", "QCD", "DY", "VV"][::-1], colors_mc=["red", "tomato", "gold", "lime", "deepskyblue", "blue", "indigo"][::-1],
+                labels_mc=[r'$t\overline{t}\rightarrow l\nu2q$', r"$t\overline{t}\rightarrow others$",  "SingleTop", "W+jets", "QCD", "DY", "VV"][::-1], colors_mc=["red", "tomato", "gold", "lime", "deepskyblue", "blue", "indigo"][::-1], cut_id=cut_id,
                 bins=70, logy=False, xlim=(0, 400), #ylim=(0.75, 1e3),
-                xlabel=r'$p_T$ muon TuneP [GeV]', title=f'{cut_id}_muon_tuneP_pt_{cut_names[cut_id]}'
+                xlabel=r'$p_T$ muon TuneP [GeV]', title=f'muon_tuneP_pt_{cut_id}_{cut_names[cut_id]}'
                 )
 
     #Lepton eta
     plot_variable(branch="lepton_trg_eta", dfs_mc=[df_ttbar_muon, df_ttbar_bck_muon, df_singletop_muon, df_wjets_muon, df_qcdmu_muon, df_dy_muon, df_vv_muon][::-1], df_data=df_data_muon,
-                labels_mc=[r'$t\overline{t}\rightarrow l\nu2q$', r"$t\overline{t}\rightarrow others$",  "SingleTop", "W+jets", "QCD", "DY", "VV"][::-1], colors_mc=["red", "tomato", "gold", "lime", "deepskyblue", "blue", "indigo"][::-1],
+                labels_mc=[r'$t\overline{t}\rightarrow l\nu2q$', r"$t\overline{t}\rightarrow others$",  "SingleTop", "W+jets", "QCD", "DY", "VV"][::-1], colors_mc=["red", "tomato", "gold", "lime", "deepskyblue", "blue", "indigo"][::-1], cut_id=cut_id,
                 bins=15, xlim=(-3, 3), #ylim=(0, 0.54*1e3), #logy=True,
-                xlabel=r'$\eta$ muon', title=f'{cut_id}_muon_eta_{cut_names[cut_id]}'
+                xlabel=r'$\eta$ muon', title=f'muon_eta_{cut_id}_{cut_names[cut_id]}'
                 )
+
+    #Number of leptons above 15 GeV
+    plot_variable(branch="Num_lep_above_15", dfs_mc=[df_ttbar_muon, df_ttbar_bck_muon, df_singletop_muon, df_wjets_muon, df_qcdmu_muon, df_dy_muon, df_vv_muon][::-1], df_data=df_data_muon,
+                labels_mc=[r'$t\overline{t}\rightarrow l\nu2q$', r"$t\overline{t}\rightarrow others$",  "SingleTop", "W+jets", "QCD", "DY", "VV"][::-1], colors_mc=["red", "tomato", "gold", "lime", "deepskyblue", "blue", "indigo"][::-1], cut_id=cut_id,
+                bins=np.arange(-0.5, 5.5, 1), #ylim=(0, 3.5*1e3), #logy=True,
+                xlabel='Number of leptons above 15 GeV', title=f'n_lep_{cut_id}_{cut_names[cut_id]}'
+                )
+
+
+    #Number of bjets
+    plot_variable(branch="n_bjets", dfs_mc=[df_ttbar_muon, df_ttbar_bck_muon, df_singletop_muon, df_wjets_muon, df_qcdmu_muon, df_dy_muon, df_vv_muon][::-1], df_data=df_data_muon,
+                labels_mc=[r'$t\overline{t}\rightarrow l\nu2q$', r"$t\overline{t}\rightarrow others$",  "SingleTop", "W+jets", "QCD", "DY", "VV"][::-1], colors_mc=["red", "tomato", "gold", "lime", "deepskyblue", "blue", "indigo"][::-1], cut_id=cut_id,
+                bins=np.arange(-0.5, 5.5, 1), #ylim=(0, 3.5*1e3), #logy=True,
+                xlabel='Number of b-jets', title=f'n_bJets_{cut_id}_{cut_names[cut_id]}'
+                )
+
+    #Leading bjet pt
+    plot_variable(branch="bjet_pt", dfs_mc=[df_ttbar_muon, df_ttbar_bck_muon, df_singletop_muon, df_wjets_muon, df_qcdmu_muon, df_dy_muon, df_vv_muon][::-1], df_data=df_data_muon,
+                labels_mc=[r'$t\overline{t}\rightarrow l\nu2q$', r"$t\overline{t}\rightarrow others$",  "SingleTop", "W+jets", "QCD", "DY", "VV"][::-1], colors_mc=["red", "tomato", "gold", "lime", "deepskyblue", "blue", "indigo"][::-1], cut_id=cut_id,
+                nth_element=0,  # Select the leading b-jet
+                bins=70, xlim=(0, 400), #ylim=(0, 0.54*1e3), #logy=True,
+                xlabel='Leading b-jet $p_T$ [GeV]', title=f'leading_bjet_pt_{cut_id}_{cut_names[cut_id]}'
+                )
+
+    #Number of jets
+    plot_variable(branch="n_jets", dfs_mc=[df_ttbar_muon, df_ttbar_bck_muon, df_singletop_muon, df_wjets_muon, df_qcdmu_muon, df_dy_muon, df_vv_muon][::-1], df_data=df_data_muon,
+                labels_mc=[r'$t\overline{t}\rightarrow l\nu2q$', r"$t\overline{t}\rightarrow others$",  "SingleTop", "W+jets", "QCD", "DY", "VV"][::-1], colors_mc=["red", "tomato", "gold", "lime", "deepskyblue", "blue", "indigo"][::-1], cut_id=cut_id,
+                bins=np.arange(-0.5, 10.5, 1), #ylim=(0, 3.5*1e3), #logy=True,
+                xlabel='Number of jets', title=f'n_jets_{cut_id}_{cut_names[cut_id]}'
+                )
+    
+
+    #leading jet pt
+    plot_variable(branch="Jet_pt", dfs_mc=[df_ttbar_muon, df_ttbar_bck_muon, df_singletop_muon, df_wjets_muon, df_qcdmu_muon, df_dy_muon, df_vv_muon][::-1], df_data=df_data_muon,
+                labels_mc=[r'$t\overline{t}\rightarrow l\nu2q$', r"$t\overline{t}\rightarrow others$",  "SingleTop", "W+jets", "QCD", "DY", "VV"][::-1], colors_mc=["red", "tomato", "gold", "lime", "deepskyblue", "blue", "indigo"][::-1], cut_id=cut_id,
+                nth_element=0,  # Select the leading jet
+                bins=95, xlim=(0, 600), #ylim=(0, 0.54*1e3), #logy=True,
+                xlabel='Leading jet $p_T$ [GeV]', title=f'leading_jet_pt_{cut_id}_{cut_names[cut_id]}'
+                )
+
+    #leading bjet eta
+    plot_variable(branch="bjet_eta", dfs_mc=[df_ttbar_muon, df_ttbar_bck_muon, df_singletop_muon, df_wjets_muon, df_qcdmu_muon, df_dy_muon, df_vv_muon][::-1], df_data=df_data_muon,
+                labels_mc=[r'$t\overline{t}\rightarrow l\nu2q$', r"$t\overline{t}\rightarrow others$",  "SingleTop", "W+jets", "QCD", "DY", "VV"][::-1], colors_mc=["red", "tomato", "gold", "lime", "deepskyblue", "blue", "indigo"][::-1], cut_id=cut_id,
+                nth_element=0,  # Select the leading b-jet
+                bins=15, xlim=(-3, 3), #ylim=(0, 0.54*1e3), #logy=True,
+                xlabel='Leading b-jet $\eta$', title=f'leading_bjet_eta_{cut_id}_{cut_names[cut_id]}'
+                )
+    
+    #leading jet eta
+    plot_variable(branch="Jet_eta", dfs_mc=[df_ttbar_muon, df_ttbar_bck_muon, df_singletop_muon, df_wjets_muon, df_qcdmu_muon, df_dy_muon, df_vv_muon][::-1], df_data=df_data_muon,
+                labels_mc=[r'$t\overline{t}\rightarrow l\nu2q$', r"$t\overline{t}\rightarrow others$",  "SingleTop", "W+jets", "QCD", "DY", "VV"][::-1], colors_mc=["red", "tomato", "gold", "lime", "deepskyblue", "blue", "indigo"][::-1], cut_id=cut_id,
+                nth_element=0,  # Select the leading jet
+                bins=15, xlim=(-3, 3), #ylim=(0, 0.54*1e3), #logy=True,
+                xlabel='Leading jet $\eta$', title=f'leading_jet_eta_{cut_id}_{cut_names[cut_id]}'
+                )
+
+    #Number of good subjets in topjet
+    plot_variable(branch="num_subjets_in_topjet_pt30_eta2p5", dfs_mc=[df_ttbar_muon, df_ttbar_bck_muon, df_singletop_muon, df_wjets_muon, df_qcdmu_muon, df_dy_muon, df_vv_muon][::-1], df_data=df_data_muon,
+                labels_mc=[r'$t\overline{t}\rightarrow l\nu2q$', r"$t\overline{t}\rightarrow others$",  "SingleTop", "W+jets", "QCD", "DY", "VV"][::-1], colors_mc=["red", "tomato", "gold", "lime", "deepskyblue", "blue", "indigo"][::-1], cut_id=cut_id,
+                bins=np.arange(-0.5, 10.5, 1), #ylim=(0, 3.5*1e3), #logy=True,
+                xlabel='Number of good subjets in topjet', title=f'n_goodTopSubjets_{cut_id}_{cut_names[cut_id]}'
+                )
+
+    # Topjet pt
+    plot_variable(branch="topjets.pt", dfs_mc=[df_ttbar_muon, df_ttbar_bck_muon, df_singletop_muon, df_wjets_muon, df_qcdmu_muon, df_dy_muon, df_vv_muon][::-1], df_data=df_data_muon,
+                labels_mc=[r'$t\overline{t}\rightarrow l\nu2q$', r"$t\overline{t}\rightarrow others$",  "SingleTop", "W+jets", "QCD", "DY", "VV"][::-1], colors_mc=["red", "tomato", "gold", "lime", "deepskyblue", "blue", "indigo"][::-1], cut_id=cut_id,
+                bins=70, xlim=(0, 800), #ylim=(0, 0.54*1e3), #logy=True,
+                xlabel='Topjet $p_T$ [GeV]', title=f'topjet_pt_{cut_id}_{cut_names[cut_id]}'
+                )
+
+    # Topjet eta
+    plot_variable(branch="topjets.eta", dfs_mc=[df_ttbar_muon, df_ttbar_bck_muon, df_singletop_muon, df_wjets_muon, df_qcdmu_muon, df_dy_muon, df_vv_muon][::-1], df_data=df_data_muon,
+                labels_mc=[r'$t\overline{t}\rightarrow l\nu2q$', r"$t\overline{t}\rightarrow others$",  "SingleTop", "W+jets", "QCD", "DY", "VV"][::-1], colors_mc=["red", "tomato", "gold", "lime", "deepskyblue", "blue", "indigo"][::-1], cut_id=cut_id,
+                bins=15, xlim=(-3, 3), #ylim=(0, 0.54*1e3), #logy=True,
+                xlabel='Topjet $\eta$', title=f'topjet_eta_{cut_id}_{cut_names[cut_id]}'
+                )
+
+    # Topjet mass
+    plot_variable(branch="topjets.mass", dfs_mc=[df_ttbar_muon, df_ttbar_bck_muon, df_singletop_muon, df_wjets_muon, df_qcdmu_muon, df_dy_muon, df_vv_muon][::-1], df_data=df_data_muon,
+                labels_mc=[r'$t\overline{t}\rightarrow l\nu2q$', r"$t\overline{t}\rightarrow others$",  "SingleTop", "W+jets", "QCD", "DY", "VV"][::-1], colors_mc=["red", "tomato", "gold", "lime", "deepskyblue", "blue", "indigo"][::-1], cut_id=cut_id,
+                bins=70, xlim=(0, 300), #ylim=(0, 0.54*1e3), #logy=True,
+                xlabel='Topjet mass [GeV]', title=f'topjet_mass_{cut_id}_{cut_names[cut_id]}'
+                )
+
+    # Leading subjet pt
+    plot_variable(branch="subjets.pt", dfs_mc=[df_ttbar_muon, df_ttbar_bck_muon, df_singletop_muon, df_wjets_muon, df_qcdmu_muon, df_dy_muon, df_vv_muon][::-1], df_data=df_data_muon,
+                labels_mc=[r'$t\overline{t}\rightarrow l\nu2q$', r"$t\overline{t}\rightarrow others$",  "SingleTop", "W+jets", "QCD", "DY", "VV"][::-1], colors_mc=["red", "tomato", "gold", "lime", "deepskyblue", "blue", "indigo"][::-1], cut_id=cut_id,
+                nth_element=0,  # Select the leading subjet
+                bins=95, xlim=(0, 600), #ylim=(0, 0.54*1e3), #logy=True,
+                xlabel='Leading subjet $p_T$ [GeV]', title=f'leading_subjet_pt_{cut_id}_{cut_names[cut_id]}'
+                )
+
+    # Leading subjet eta
+    plot_variable(branch="subjets.eta", dfs_mc=[df_ttbar_muon, df_ttbar_bck_muon, df_singletop_muon, df_wjets_muon, df_qcdmu_muon, df_dy_muon, df_vv_muon][::-1], df_data=df_data_muon,
+                labels_mc=[r'$t\overline{t}\rightarrow l\nu2q$', r"$t\overline{t}\rightarrow others$",  "SingleTop", "W+jets", "QCD", "DY", "VV"][::-1], colors_mc=["red", "tomato", "gold", "lime", "deepskyblue", "blue", "indigo"][::-1], cut_id=cut_id,
+                nth_element=0,  # Select the leading subjet
+                bins=15, xlim=(-3, 3), #ylim=(0, 0.54*1e3), #logy=True,
+                xlabel='Leading subjet $\eta$', title=f'leading_subjet_eta_{cut_id}_{cut_names[cut_id]}'
+                )
+
+    #MET pt
+    plot_variable(branch="PuppiMET_pt", dfs_mc=[df_ttbar_muon, df_ttbar_bck_muon, df_singletop_muon, df_wjets_muon, df_qcdmu_muon, df_dy_muon, df_vv_muon][::-1], df_data=df_data_muon,
+                labels_mc=[r'$t\overline{t}\rightarrow l\nu2q$', r"$t\overline{t}\rightarrow others$",  "SingleTop", "W+jets", "QCD", "DY", "VV"][::-1], colors_mc=["red", "tomato", "gold", "lime", "deepskyblue", "blue", "indigo"][::-1], cut_id=cut_id,
+                bins=95, xlim=(0, 600), #ylim=(0, 0.54*1e3), #logy=True,
+                xlabel='Puppi MET $p_T$ [GeV]', title=f'PuppiMET_pt_{cut_id}_{cut_names[cut_id]}'
+                )
+
+
 
 # cut_id = 11  # Example cut_id for final selection after all cuts
 # df_data_muon = filter_by_cut(df_data, cut_id)
@@ -1679,6 +1879,7 @@ for cut_id in range(12):
 # df_dy_muon = filter_by_cut(df_dy, cut_id)
 # df_vv_muon = filter_by_cut(df_vv, cut_id)
 
+# columns_mc = ["eventWeight", "lepton_trg_pt", "lepton_tuneP_pt", "lepton_trg_eta", "lepton_trg_jet_pt", "pass_trigger", "PUReweighting", "pass_MET_filters_2023", "Num_lep_above_15", "num_muon_selected", "is_muon_trg", "PuppiMET_pt", "n_bjets", "bjet_pt", "bjet_eta", "n_jets", "TopPtWeight_NNLOpNLOEW", "muoWeight", "btagWeight", "topjets.pt", "topjets.eta", "topjets.mass", "num_subjets_in_topjet_pt30_eta2p5", "topjets.n_subjets", "subjets.pt", "subjets.eta", "Jet_pt", "Jet_eta", "Jet_hadronFlavour", "Jet_btagDeepFlavB", "Pileup_nTrueInt"]
 
 # #LEPTONS
 # #Numer of leptons
