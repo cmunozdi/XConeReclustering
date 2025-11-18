@@ -57,7 +57,7 @@ namespace ROOT {
       ::JetAntikTReclus *ptr = nullptr;
       static ::TVirtualIsAProxy* isa_proxy = new ::TIsAProxy(typeid(::JetAntikTReclus));
       static ::ROOT::TGenericClassInfo 
-         instance("JetAntikTReclus", "selection_helpers_BoostedTopQuark.h", 194,
+         instance("JetAntikTReclus", "selection_helpers_BoostedTopQuark.h", 263,
                   typeid(::JetAntikTReclus), ::ROOT::Internal::DefineBehavior(ptr, ptr),
                   &JetAntikTReclus_Dictionary, isa_proxy, 4,
                   sizeof(::JetAntikTReclus) );
@@ -100,7 +100,7 @@ namespace ROOT {
       ::Lepton *ptr = nullptr;
       static ::TVirtualIsAProxy* isa_proxy = new ::TInstrumentedIsAProxy< ::Lepton >(nullptr);
       static ::ROOT::TGenericClassInfo 
-         instance("Lepton", ::Lepton::Class_Version(), "selection_helpers_BoostedTopQuark.h", 240,
+         instance("Lepton", ::Lepton::Class_Version(), "selection_helpers_BoostedTopQuark.h", 309,
                   typeid(::Lepton), ::ROOT::Internal::DefineBehavior(ptr, ptr),
                   &::Lepton::Dictionary, isa_proxy, 4,
                   sizeof(::Lepton) );
@@ -132,7 +132,7 @@ namespace ROOT {
       ::JetReclus *ptr = nullptr;
       static ::TVirtualIsAProxy* isa_proxy = new ::TInstrumentedIsAProxy< ::JetReclus >(nullptr);
       static ::ROOT::TGenericClassInfo 
-         instance("JetReclus", ::JetReclus::Class_Version(), "selection_helpers_BoostedTopQuark.h", 728,
+         instance("JetReclus", ::JetReclus::Class_Version(), "selection_helpers_BoostedTopQuark.h", 808,
                   typeid(::JetReclus), ::ROOT::Internal::DefineBehavior(ptr, ptr),
                   &::JetReclus::Dictionary, isa_proxy, 4,
                   sizeof(::JetReclus) );
@@ -164,7 +164,7 @@ namespace ROOT {
       ::TopJetReclus *ptr = nullptr;
       static ::TVirtualIsAProxy* isa_proxy = new ::TInstrumentedIsAProxy< ::TopJetReclus >(nullptr);
       static ::ROOT::TGenericClassInfo 
-         instance("TopJetReclus", ::TopJetReclus::Class_Version(), "selection_helpers_BoostedTopQuark.h", 749,
+         instance("TopJetReclus", ::TopJetReclus::Class_Version(), "selection_helpers_BoostedTopQuark.h", 829,
                   typeid(::TopJetReclus), ::ROOT::Internal::DefineBehavior(ptr, ptr),
                   &::TopJetReclus::Dictionary, isa_proxy, 4,
                   sizeof(::TopJetReclus) );
@@ -196,7 +196,7 @@ namespace ROOT {
       ::XConeReclusteredJets *ptr = nullptr;
       static ::TVirtualIsAProxy* isa_proxy = new ::TInstrumentedIsAProxy< ::XConeReclusteredJets >(nullptr);
       static ::ROOT::TGenericClassInfo 
-         instance("XConeReclusteredJets", ::XConeReclusteredJets::Class_Version(), "selection_helpers_BoostedTopQuark.h", 770,
+         instance("XConeReclusteredJets", ::XConeReclusteredJets::Class_Version(), "selection_helpers_BoostedTopQuark.h", 850,
                   typeid(::XConeReclusteredJets), ::ROOT::Internal::DefineBehavior(ptr, ptr),
                   &::XConeReclusteredJets::Dictionary, isa_proxy, 4,
                   sizeof(::XConeReclusteredJets) );

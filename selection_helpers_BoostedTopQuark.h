@@ -46,6 +46,8 @@ extern std::unique_ptr<correction::CorrectionSet> cset;
 // extern std::unique_ptr<correction::CorrectionSet> cset_btag;
 extern std::unique_ptr<correction::CorrectionSet> sf_btagset;
 extern std::unique_ptr<correction::CorrectionSet> eff_btagset;
+extern std::unique_ptr<correction::CorrectionSet> sf_muoset;
+extern std::unique_ptr<correction::CorrectionSet> sf_purew;
 
 // NEW: global tags for which correction to pick inside the JSON. Change values as needed in selection_helpers_BoostedTopQuark.cpp
 extern std::string g_jec_tag;  //= "Summer23Prompt23_V2_MC";
@@ -63,14 +65,14 @@ inline void initializeCorrectionSet(bool isMC = true, const std::string &jec_ove
     if (!jec_override.empty()) {
         g_jec_tag = jec_override;
     } else {
-        g_jec_tag = g_isMC ? "Summer22EE_22Sep2023_V3_MC" : "Summer22EE_22Sep2023_RunG_V3_DATA";
+        g_jec_tag = g_isMC ? "Summer23Prompt23_V2_MC" : "Summer23Prompt23_V2_DATA";
     }
     // lvl/algo kept as defaults but can be changed from Python if desired:
     std::cout << "Using JEC tag: " << g_jec_tag << std::endl;
     g_lvl_tag  = "L1L2L3Res";
     g_algo_tag = "AK4PFPuppi";
 
-    fs::path fname_ak4_2023 = "/cvmfs/cms-griddata.cern.ch/cat/metadata/JME/Run3-22EFGSep23-Summer22EE-NanoAODv12/latest/jet_jerc.json.gz"; //"./jet_jerc.json.gz";
+    fs::path fname_ak4_2023 = "/cvmfs/cms-griddata.cern.ch/cat/metadata/JME/Run3-23CSep23-Summer23-NanoAODv12/latest/jet_jerc.json.gz"; //"./jet_jerc.json.gz";
     if (!fs::exists(fname_ak4_2023)) {
         throw std::runtime_error("El archivo de corrección no existe: " + fname_ak4_2023.string());
     }
@@ -80,8 +82,8 @@ inline void initializeCorrectionSet(bool isMC = true, const std::string &jec_ove
 
 // Inicializar `cset` al comienzo del header
 inline void initializeBTagCorrectionSet() {
-    fs::path fname_sf_btag_2023 = "./btagging.json.gz"; //"/eos/user/c/cmunozdi/SWAN_projects/BtagScaleFactors/btagging.json.gz"; 
-    fs::path fname_eff_btag_2023 = "./btag_efficiencies_combined.json"; //"/eos/project/r/rtu-topanalysis/AnalysisSamples_JetTightIDNoLepVeto/output_efficiencies_rdf/btag_efficiencies_combined.json"; 
+    fs::path fname_sf_btag_2023 = "/cvmfs/cms-griddata.cern.ch/cat/metadata/BTV/Run3-22EFGSep23-Summer22EE-NanoAODv12/latest/btagging.json.gz"; //"./btagging.json.gz"; //"/eos/user/c/cmunozdi/SWAN_projects/BtagScaleFactors/btagging.json.gz"; 
+    fs::path fname_eff_btag_2023 = "/eos/project/r/rtu-topanalysis/cmunozdi/AnalysisSamples_JetTightIDNoLepVeto_Full/output_efficiencies_rdf_topSemi_2023preBPix/btag_efficiencies_combined.json"; //"./btag_efficiencies_combined.json"; //"/eos/project/r/rtu-topanalysis/AnalysisSamples_JetTightIDNoLepVeto/output_efficiencies_rdf/btag_efficiencies_combined.json"; 
     // fs::path fname_btag_2023 = "/cvmfs/cms.cern.ch/rsync/cms-nanoAOD/jsonpog-integration/POG/BTV/2023_Summer23/btagging.json.gz";
     if (!fs::exists(fname_sf_btag_2023)) {
         throw std::runtime_error("El archivo de corrección no existe: " + fname_sf_btag_2023.string());
@@ -93,6 +95,24 @@ inline void initializeBTagCorrectionSet() {
     }
     eff_btagset = correction::CorrectionSet::from_file(fname_eff_btag_2023.string());
     std::cout << "Archivo de corrección cargado exitosamente: " << fname_eff_btag_2023.string() << std::endl;
+}
+
+inline void initializeMUOCorrectionSet() {
+    fs::path fname_sf_MUO_2023 = "/cvmfs/cms-griddata.cern.ch/cat/metadata/MUO/Run3-23CSep23-Summer23-NanoAODv12/latest/muon_HighPt.json.gz"; //"./muoSFs/muon_HighPt.json.gz";
+    if (!fs::exists(fname_sf_MUO_2023)) {
+        throw std::runtime_error("Correction file does not exist: " + fname_sf_MUO_2023.string());
+    }
+    sf_muoset = correction::CorrectionSet::from_file(fname_sf_MUO_2023.string());
+    std::cout << "Correction file loaded susscessfully: " << fname_sf_MUO_2023.string() << std::endl;
+}
+
+inline void initializePUReweightingCorrectionSet() {
+    fs::path fname_puReweighting_2023 = "/cvmfs/cms-griddata.cern.ch/cat/metadata/LUM/Run3-23CSep23-Summer23-NanoAODv12/latest/puWeights.json.gz"; //"./puRew/puWeights.json.gz";
+    if (!fs::exists(fname_puReweighting_2023)) {
+        throw std::runtime_error("Correction file does not exist: " + fname_puReweighting_2023.string());
+    }
+    sf_purew = correction::CorrectionSet::from_file(fname_puReweighting_2023.string());
+    std::cout << "Correction file loaded susscessfully: " << fname_puReweighting_2023.string() << std::endl;
 }
 
 extern bool debug;
@@ -162,6 +182,55 @@ inline float compute_btagWeight(const rvec_f &jet_pts, const rvec_f &jet_etas, c
 
         weight *= jet_w;
     }
+    return weight;
+}
+
+// Function to compute MUO weight of the event with just one muon
+inline float compute_MUOWeight(const float &muo_pt, const float &muo_eta){
+    float weight =1.;
+    float muo_p = muo_pt*std::cosh(muo_eta);
+
+    float w_global = 1., w_highptid = 1., w_iso = 1., w_hlt = 1.;
+
+    try {
+        w_global = sf_muoset->at("NUM_GlobalMuons_DEN_TrackerMuonProbes")->evaluate({muo_eta, muo_p, "nominal"});
+    } catch (const std::exception &e) {
+        std::cerr << "Error in w_global: " << e.what() << std::endl;
+    }
+
+    try {
+        w_highptid = sf_muoset->at("NUM_HighPtID_DEN_GlobalMuonProbes")->evaluate({muo_eta, muo_pt, "nominal"});
+    } catch (const std::exception &e) {
+        std::cerr << "Error in w_highptid: " << e.what() << std::endl;
+    }
+
+    try {
+        w_iso = sf_muoset->at("NUM_probe_LooseRelTkIso_DEN_HighPtProbes")->evaluate({muo_eta, muo_pt, "nominal"});
+    } catch (const std::exception &e) {
+        std::cerr << "Error in w_iso: " << e.what() << std::endl;
+    }
+
+    try {
+        w_hlt = sf_muoset->at("NUM_HLT_DEN_HighPtLooseRelIsoProbes")->evaluate({muo_eta, muo_pt, "nominal"});
+    } catch (const std::exception &e) {
+        std::cerr << "Error in w_hlt: " << e.what() << std::endl;
+    }
+
+    weight = w_global * w_highptid * w_iso * w_hlt;
+    return weight;
+
+}
+
+//Function to compute PU reweighting correction
+inline float compute_PUReweight(const float &PU_NumTrueInteractions){
+    float weight = 1.;
+
+    try{
+        weight = sf_purew->at("Collisions2023_366403_369802_eraBC_GoldenJson")->evaluate({PU_NumTrueInteractions, "nominal"});
+    } catch (const std::exception &e) {
+        std::cerr << "Error in w_pu: " << e.what() << std::endl;
+    }
+
     return weight;
 }
 
@@ -245,6 +314,7 @@ struct Lepton{
     std::vector<float> dR_to_jet;
     std::vector<float> pt_rel_to_jet;
     int n_lep=0;
+    int n_lep_after2Dcuts=0; // New variable to count leptons after 2D cuts
     std::vector<float> closest_jet_pt; // To store the pt of the closest jet to the lepton, if needed
     std::vector<float> closest_jet_eta; // To store the eta of the closest jet to the lepton, if needed
     std::vector<float> closest_jet_phi; // To store the phi of the closest jet to the lepton, if needed
@@ -569,7 +639,8 @@ inline Lepton triggerLepton(const rvec_f &pt_le, const rvec_f &eta_le, const rve
             // if(min_dR_to_jet < 0.4 && min_pt_rel_to_jet < ptrel_max) {
             //     isInsideJet = true;
             // }   
-            if ((min_dR_to_jet>thr_dR || min_pt_rel_to_jet>thr_ptrel) && (min_dR_to_jet!= 999. && min_pt_rel_to_jet != -1.)) {
+            // Remove the 2D cuts here to be able to apply it on the cutflow selection
+            if (/*(min_dR_to_jet>thr_dR || min_pt_rel_to_jet>thr_ptrel) &&*/ (min_dR_to_jet!= 999. && min_pt_rel_to_jet != -1.)) {
                 lepton.pt.push_back(pt_le[i]);
                 lepton.eta.push_back(eta_le[i]);
                 lepton.phi.push_back(phi_le[i]);
@@ -633,6 +704,15 @@ inline Lepton triggerLepton(const rvec_f &pt_le, const rvec_f &eta_le, const rve
     }
 
     lepton.n_lep = lepton.pt.size();
+    //New subbranch for lepton: number of good leptons, that means, how many leptons pass the 2D isolation criteria (dR and ptrel) (only for muons, and electrons avobe 120 GeV in pT)
+    lepton.n_lep_after2Dcuts = 0;
+    for(size_t i=0; i<lepton.pt.size(); i++){
+        if((abs(lepton.pdgId[i])==13) || (abs(lepton.pdgId[i])==11 && lepton.pt[i]>120.0)){
+            if(lepton.dR_to_jet[i]>thr_dR || lepton.pt_rel_to_jet[i]>thr_ptrel){
+                lepton.n_lep_after2Dcuts++;
+            }
+        }
+    }
     return lepton;
 }
 
@@ -706,6 +786,9 @@ inline Lepton CombineLeptons(const Lepton& muons, const Lepton& electrons) {
 
     // Actualizar el número total de leptones
     combined.n_lep = muons.n_lep + electrons.n_lep;
+
+    //Actualizar el número total de leptones después de los cortes 2D
+    combined.n_lep_after2Dcuts = muons.n_lep_after2Dcuts + electrons.n_lep_after2Dcuts;
 
     // Actualizar el umbral del jet más cercano
     combined.closest_jet_threshold = std::max(muons.closest_jet_threshold, electrons.closest_jet_threshold);

@@ -44,8 +44,10 @@ output_file_lumi = args.output.replace(".root", "_lumi.root")
 
 ROOT.gInterpreter.Declare('#include "selection_helpers_BoostedTopQuark.h"') ##RUN CRAB
 # Llamar a la función para inicializar `cset`
-ROOT.gInterpreter.ProcessLine("initializeCorrectionSet();")
+ROOT.gInterpreter.ProcessLine(f"initializeCorrectionSet({str(isMC).lower()});")
 ROOT.gInterpreter.ProcessLine("initializeBTagCorrectionSet();")
+ROOT.gInterpreter.ProcessLine("initializeMUOCorrectionSet();")
+ROOT.gInterpreter.ProcessLine("initializePUReweightingCorrectionSet();")
 # verbosity = ROOT.Experimental.RLogScopedVerbosity(ROOT.Detail.RDF.RDFLogChannel(), ROOT.Experimental.ELogLevel.kInfo)
 
 ROOT.ROOT.EnableImplicitMT()
@@ -56,13 +58,7 @@ rdf_lumi = ROOT.RDataFrame("LuminosityBlocks", input_files)
 rdf_lumi.Snapshot('LuminosityBlocks', output_file_lumi)
 rdf = ROOT.RDataFrame("Events", input_files)
 
-# Only for ttbar samples, add the top pt reweighting
-# rdf = rdf.Define("GenPartTop_pt", "GenPart_pt[(abs(GenPart_pdgId) == 6) && (GenPart_statusFlags & (1<<13)) != 0]") \
-#          .Define("TopPtWeight_dataPowheg", "GenPartTop_pt.size() == 2 ? sqrt( exp(0.0615 - 0.0005*GenPartTop_pt[0]) * exp(0.0615 - 0.0005*GenPartTop_pt[1]) ) : 1.0") \
-#          .Define("TopPtWeight_NNLOpNLOEW", "GenPartTop_pt.size() == 2 ? sqrt((0.103*exp(-0.0118*GenPartTop_pt[0])-0.000134*GenPartTop_pt[0]+0.973)*(0.103*exp(-0.0118*GenPartTop_pt[1])-0.000134*GenPartTop_pt[1]+0.973)) : 1.0") \
 
-#Define b-tagging weights
-rdf = rdf.Define("btagWeight", "compute_btagWeight(Jet_pt, Jet_eta, Jet_hadronFlavour, Jet_btagDeepFlavB)") \
 
 # Define Jet_passTightID
 rdf = rdf.Define("Jet_passJetIdTight", "pass_JetIdTightLepVeto(Jet_eta, Jet_neHEF, Jet_neEmEF, Jet_chMultiplicity, Jet_neMultiplicity, \
@@ -75,10 +71,10 @@ rdf = rdf.Define("Jet_passJetIdTight", "pass_JetIdTightLepVeto(Jet_eta, Jet_neHE
         #  .Redefine('Electron_tightId', 'std::vector<bool>(Electron_tightId.begin(), Electron_tightId.end())') \
 
 rdf = rdf.Define('muon', 'triggerLepton(Muon_pt, Muon_eta, Muon_phi, Muon_pdgId, Muon_jetIdx, Muon_tightId, PFCands_pt, PFCands_eta, PFCands_phi, \
-                 PFCands_pdgId, Jet_pt, Jet_eta, Jet_phi, Jet_mass, Jet_passJetIdTight, Jet_rawFactor, Jet_area, Rho_fixedGridRhoFastjetAll, 25, true, false)') \
+                 PFCands_pdgId, Jet_pt, Jet_eta, Jet_phi, Jet_mass, Jet_passJetIdTight, Jet_rawFactor, Jet_area, Rho_fixedGridRhoFastjetAll, run, 25, true, false)') \
          .Define('Electron_tightId', 'Electron_cutBased >= 4') \
          .Define('electron', 'triggerLepton(Electron_pt, Electron_eta, Electron_phi, Electron_pdgId, Electron_jetIdx, Electron_tightId, \
-                 PFCands_pt, PFCands_eta, PFCands_phi, PFCands_pdgId, Jet_pt, Jet_eta, Jet_phi, Jet_mass, Jet_passJetIdTight, Jet_rawFactor, Jet_area, Rho_fixedGridRhoFastjetAll, 25, false, false)') \
+                 PFCands_pt, PFCands_eta, PFCands_phi, PFCands_pdgId, Jet_pt, Jet_eta, Jet_phi, Jet_mass, Jet_passJetIdTight, Jet_rawFactor, Jet_area, Rho_fixedGridRhoFastjetAll, run, 25, false, false)') \
          .Define('lepton', 'CombineLeptons(muon, electron)') \
          .Define('n_leptons', 'lepton.n_lep') \
          .Define('Num_lep_above_15', "Sum(Muon_pt > 15 && abs(Muon_eta) < 2.4 && Muon_tightId) + Sum(Electron_pt > 15 && abs(Electron_eta) < 2.4 && Electron_tightId)") \
@@ -108,16 +104,25 @@ rdf = rdf.Define('jet_XConefromPFCands','buildXConeJets(PFCands_pt, PFCands_eta,
          .Define('n_fatjets', 'jet_XConefromPFCands.fatjets.n_jets') \
         #  .Filter('jet_XConefromPFCands.fatjets.n_jets > 0') \
 
+rdf = rdf.Define("pass_MET_filters", "Flag_goodVertices && Flag_globalSuperTightHalo2016Filter && Flag_EcalDeadCellTriggerPrimitiveFilter && Flag_BadPFMuonFilter && Flag_BadPFMuonDzFilter && Flag_hfNoisyHitsFilter && Flag_eeBadScFilter")
+
 # # XCone for PFCands: pass detector selection flag: #Reducing cuts as well   && (n_jets > 0) && (pt_miss > 37.5) && (n_fatjets > 0) || lepton_20.n_lep >= 1 || lepton_25.n_lep >= 1 || lepton_30.n_lep >= 1  && (n_pseudo_bjets > 0) && (PuppiMET_pt > 37.5)
 rdf = rdf.Define('pass_detector_selection', '''
                 return  ((lepton.n_lep >= 1) && (Num_lep_above_15 >= 1) && (n_pseudo_bjets > 0) && (PuppiMET_pt > 37.5) && (n_fatjets > 0) && (jet_XConefromPFCands.topjets.n_subjets ==3) && (jet_XConefromPFCands.topjets.pt > 200));
                 ''')
 
 if isMC:
+    # Only for ttbar samples, add the top pt reweighting
+    rdf = rdf.Define("GenPartTop_pt", "GenPart_pt[(abs(GenPart_pdgId) == 6) && (GenPart_statusFlags & (1<<13)) != 0]") \
+             .Define("TopPtWeight_dataPowheg", "GenPartTop_pt.size() == 2 ? sqrt( exp(0.0615 - 0.0005*GenPartTop_pt[0]) * exp(0.0615 - 0.0005*GenPartTop_pt[1]) ) : 1.0") \
+             .Define("TopPtWeight_NNLOpNLOEW", "GenPartTop_pt.size() == 2 ? sqrt((0.103*exp(-0.0118*GenPartTop_pt[0])-0.000134*GenPartTop_pt[0]+0.973)*(0.103*exp(-0.0118*GenPartTop_pt[1])-0.000134*GenPartTop_pt[1]+0.973)) : 1.0") \
+    #Define b-tagging weights
+    rdf = rdf.Define("btagWeight", "compute_btagWeight(Jet_pt, Jet_eta, Jet_hadronFlavour, Jet_btagDeepFlavB)") \
+
     # Only execute this line if we are processing MC  Get_pTmiss(GenCands_pt, GenCands_phi) && (n_gen_fatjets > 0
     rdf = rdf.Define('GenCands_jetIdx', 'calculateGenCandsJetIdx(GenJetCands_genCandsIdx, GenJetCands_jetIdx, nGenCands, nGenJet)') \
-             .Define('gen_muon', 'triggerLepton(GenCands_pt, GenCands_eta, GenCands_phi, GenCands_pdgId, GenCands_jetIdx, ROOT::VecOps::RVec<bool>(), GenCands_pt, GenCands_eta, GenCands_phi, GenCands_pdgId, GenJet_pt, GenJet_eta, GenJet_phi, GenJet_mass, ROOT::VecOps::RVec<bool>(GenJet_eta.size(), true), ROOT::VecOps::RVec<float>(GenJet_pt.size(), 0.0), ROOT::VecOps::RVec<float>(GenJet_pt.size(), 0.0), 0, 25, true, false, true)') \
-             .Define('gen_electron', 'triggerLepton(GenCands_pt, GenCands_eta, GenCands_phi, GenCands_pdgId, GenCands_jetIdx, ROOT::VecOps::RVec<bool>(), GenCands_pt, GenCands_eta, GenCands_phi, GenCands_pdgId, GenJet_pt, GenJet_eta, GenJet_phi, GenJet_mass, ROOT::VecOps::RVec<bool>(GenJet_eta.size(), true), ROOT::VecOps::RVec<float>(GenJet_pt.size(), 0.0), ROOT::VecOps::RVec<float>(GenJet_pt.size(), 0.0), 0, 25, false, false, true)') \
+             .Define('gen_muon', 'triggerLepton(GenCands_pt, GenCands_eta, GenCands_phi, GenCands_pdgId, GenCands_jetIdx, ROOT::VecOps::RVec<bool>(), GenCands_pt, GenCands_eta, GenCands_phi, GenCands_pdgId, GenJet_pt, GenJet_eta, GenJet_phi, GenJet_mass, ROOT::VecOps::RVec<bool>(GenJet_eta.size(), true), ROOT::VecOps::RVec<float>(GenJet_pt.size(), 0.0), ROOT::VecOps::RVec<float>(GenJet_pt.size(), 0.0), 0, -1, 25, true, false, true)') \
+             .Define('gen_electron', 'triggerLepton(GenCands_pt, GenCands_eta, GenCands_phi, GenCands_pdgId, GenCands_jetIdx, ROOT::VecOps::RVec<bool>(), GenCands_pt, GenCands_eta, GenCands_phi, GenCands_pdgId, GenJet_pt, GenJet_eta, GenJet_phi, GenJet_mass, ROOT::VecOps::RVec<bool>(GenJet_eta.size(), true), ROOT::VecOps::RVec<float>(GenJet_pt.size(), 0.0), ROOT::VecOps::RVec<float>(GenJet_pt.size(), 0.0), 0, -1, 25, false, false, true)') \
              .Define('gen_lepton', 'CombineLeptons(gen_muon, gen_electron)') \
              .Define('n_gen_leptons', 'gen_lepton.n_lep') \
              .Define('num_gen_lep_above_15', "Sum(GenCands_pt > 15 && abs(GenCands_eta) < 2.4 && (abs(GenCands_pdgId)==13 || abs(GenCands_pdgId)==11))") \
@@ -130,13 +135,16 @@ if isMC:
                     return ((n_gen_leptons >= 1) && (num_gen_lep_above_15 >= 1) && (n_gen_pseudo_bjets > 0) && (GenMET_pt > 37.5) && (n_gen_fatjets > 0) && (jet_XConefromGenCands.topjets.n_subjets ==3) && (jet_XConefromGenCands.topjets.pt > 200));
                     ''') \
              .Redefine("GenCands_jetIdx", "std::vector<Short_t>(GenCands_jetIdx.begin(), GenCands_jetIdx.end())") \
+             .Define("PUReweighting", "compute_PUReweight(Pileup_nTrueInt)") \
+            #  .Define("muoWeight", "compute_MUOWeight(lepton_trg_pt, lepton_trg_eta)") \
             #  .Filter('jet_XConefromGenCands.fatjets.n_jets > 0')
 else:
     # If not MC, we don't need to define gen_* variables
     rdf = rdf.Define('pass_particle_selection', 'false')
 
 # Filter the events with at least one flag set to true
-rdf = rdf.Filter('pass_detector_selection || pass_particle_selection') 
+# rdf = rdf.Filter('pass_detector_selection || pass_particle_selection') 
+rdf = rdf.Filter("HLT_Mu50")
 
 # Save the columns needed (if running this on crab, maybe better to save all the columns, since selecting the interesting events will notably reduce the size of the file)
 # columns = ['event', 'lepton', 'n_jets', 'Jet_btagDeepFlavB', 'pt_miss']
