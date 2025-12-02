@@ -83,7 +83,7 @@ inline void initializeCorrectionSet(bool isMC = true, const std::string &jec_ove
 // Inicializar `cset` al comienzo del header
 inline void initializeBTagCorrectionSet() {
     fs::path fname_sf_btag_2023 = "/cvmfs/cms-griddata.cern.ch/cat/metadata/BTV/Run3-22EFGSep23-Summer22EE-NanoAODv12/latest/btagging.json.gz"; //"./btagging.json.gz"; //"/eos/user/c/cmunozdi/SWAN_projects/BtagScaleFactors/btagging.json.gz"; 
-    fs::path fname_eff_btag_2023 = "/eos/project/r/rtu-topanalysis/cmunozdi/AnalysisSamples_JetTightIDNoLepVeto_Full/output_efficiencies_rdf_topSemi_2023preBPix/btag_efficiencies_combined.json"; //"./btag_efficiencies_combined.json"; //"/eos/project/r/rtu-topanalysis/AnalysisSamples_JetTightIDNoLepVeto/output_efficiencies_rdf/btag_efficiencies_combined.json"; 
+    fs::path fname_eff_btag_2023 =  "./btag_efficiencies_combined.json"; //"/eos/project/r/rtu-topanalysis/cmunozdi/AnalysisSamples_JetTightIDNoLepVeto_Full/output_efficiencies_rdf_topSemi_2023preBPix/btag_efficiencies_combined.json";
     // fs::path fname_btag_2023 = "/cvmfs/cms.cern.ch/rsync/cms-nanoAOD/jsonpog-integration/POG/BTV/2023_Summer23/btagging.json.gz";
     if (!fs::exists(fname_sf_btag_2023)) {
         throw std::runtime_error("El archivo de corrección no existe: " + fname_sf_btag_2023.string());
