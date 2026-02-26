@@ -46,6 +46,8 @@ extern std::unique_ptr<correction::CorrectionSet> cset;
 // extern std::unique_ptr<correction::CorrectionSet> cset_btag;
 extern std::unique_ptr<correction::CorrectionSet> sf_btagset;
 extern std::unique_ptr<correction::CorrectionSet> eff_btagset;
+extern std::unique_ptr<correction::CorrectionSet> sf_muoset;
+extern std::unique_ptr<correction::CorrectionSet> sf_purew;
 
 // NEW: global tags for which correction to pick inside the JSON. Change values as needed in selection_helpers_BoostedTopQuark.cpp
 extern std::string g_jec_tag;  //= "Summer23Prompt23_V2_MC";
@@ -63,36 +65,19 @@ inline void initializeCorrectionSet(bool isMC = true, const std::string &jec_ove
     if (!jec_override.empty()) {
         g_jec_tag = jec_override;
     } else {
-        g_jec_tag = g_isMC ? "Summer22EE_22Sep2023_V3_MC" : "Summer22EE_22Sep2023_RunG_V3_DATA";
+        g_jec_tag = g_isMC ? "Summer23Prompt23_V2_MC" : "Summer23Prompt23_V2_DATA";//"Summer23BPixPrompt23_V3_MC" : "Summer23BPixPrompt23_V3_DATA"; //"Summer22EE_22Sep2023_V3_MC" : "Summer22EE_22Sep2023_RunE_V3_DATA"; //"Summer23Prompt23_V2_MC" : "Summer23Prompt23_V2_DATA";
     }
     // lvl/algo kept as defaults but can be changed from Python if desired:
     std::cout << "Using JEC tag: " << g_jec_tag << std::endl;
     g_lvl_tag  = "L1L2L3Res";
     g_algo_tag = "AK4PFPuppi";
 
-    fs::path fname_ak4_2023 = "/cvmfs/cms-griddata.cern.ch/cat/metadata/JME/Run3-22EFGSep23-Summer22EE-NanoAODv12/latest/jet_jerc.json.gz"; //"./jet_jerc.json.gz";
+    fs::path fname_ak4_2023 = "./jet_jerc.json.gz"; //"/cvmfs/cms-griddata.cern.ch/cat/metadata/JME/Run3-23CSep23-Summer23-NanoAODv12/latest/jet_jerc.json.gz"; For local, use the whole path. For CRAB, use relative path and upload the file with the job.
     if (!fs::exists(fname_ak4_2023)) {
         throw std::runtime_error("El archivo de corrección no existe: " + fname_ak4_2023.string());
     }
     cset = correction::CorrectionSet::from_file(fname_ak4_2023.string());
     std::cout << "Archivo de corrección cargado exitosamente: " << fname_ak4_2023.string() << std::endl;
-}
-
-// Inicializar `cset` al comienzo del header
-inline void initializeBTagCorrectionSet() {
-    fs::path fname_sf_btag_2023 = "./btagging.json.gz"; //"/eos/user/c/cmunozdi/SWAN_projects/BtagScaleFactors/btagging.json.gz"; 
-    fs::path fname_eff_btag_2023 = "./btag_efficiencies_combined.json"; //"/eos/project/r/rtu-topanalysis/AnalysisSamples_JetTightIDNoLepVeto/output_efficiencies_rdf/btag_efficiencies_combined.json"; 
-    // fs::path fname_btag_2023 = "/cvmfs/cms.cern.ch/rsync/cms-nanoAOD/jsonpog-integration/POG/BTV/2023_Summer23/btagging.json.gz";
-    if (!fs::exists(fname_sf_btag_2023)) {
-        throw std::runtime_error("El archivo de corrección no existe: " + fname_sf_btag_2023.string());
-    }
-    sf_btagset = correction::CorrectionSet::from_file(fname_sf_btag_2023.string());
-    std::cout << "Archivo de corrección cargado exitosamente: " << fname_sf_btag_2023.string() << std::endl;
-    if (!fs::exists(fname_eff_btag_2023)) {
-        throw std::runtime_error("El archivo de corrección no existe: " + fname_eff_btag_2023.string());
-    }
-    eff_btagset = correction::CorrectionSet::from_file(fname_eff_btag_2023.string());
-    std::cout << "Archivo de corrección cargado exitosamente: " << fname_eff_btag_2023.string() << std::endl;
 }
 
 extern bool debug;
@@ -114,137 +99,16 @@ inline double get_mass(int pdgId) {
     }
 }
 
-// Funtion to compute btagWeight of the event given the jet collection
-inline float compute_btagWeight(const rvec_f &jet_pts, const rvec_f &jet_etas, const ROOT::VecOps::RVec<UChar_t>& jet_flavs, const rvec_f &jet_btags) {
-    float weight = 1.;
-    for (size_t i = 0; i < jet_pts.size(); i++) {
-
-        if (jet_pts[i] < 30. || abs(jet_etas[i]) > 2.5 /*|| jet_pts[i] > 1000*/) continue;
-
-        float sf = 1.;
-        try {
-            if (static_cast<int>(jet_flavs[i]) == 0) {
-                sf = sf_btagset->at("deepJet_light")->evaluate(
-                    std::vector<correction::Variable::Type>{"central", "T", static_cast<int>(jet_flavs[i]), abs(jet_etas[i]), jet_pts[i]}
-                );
-            } else {
-                sf = sf_btagset->at("deepJet_comb")->evaluate(
-                    std::vector<correction::Variable::Type>{"central", "T", static_cast<int>(jet_flavs[i]), abs(jet_etas[i]), jet_pts[i]}
-                );
-            }
-        } catch (const std::exception &e) {
-            
-            std::cout << "Jet " << i << ": pt = " << jet_pts[i] << ", eta = " << jet_etas[i] 
-                  << ", flav = " << static_cast<int>(jet_flavs[i]) << ", btag = " << jet_btags[i] << std::endl;
-            std::cerr << "Error al evaluar el SF para el jet " << i << ": " << e.what() << ". Value of sf=" << sf << std::endl;
-            continue;
-        }
-
-        float eff = 1.;
-        try {
-            eff = eff_btagset->at("btag_efficiency")->evaluate(
-                std::vector<correction::Variable::Type>{jet_etas[i], jet_pts[i], static_cast<int>(jet_flavs[i])}
-            );
-        } catch (const std::exception &e) {
-            
-            std::cout << "Jet " << i << ": pt = " << jet_pts[i] << ", eta = " << jet_etas[i] 
-                  << ", flav = " << static_cast<int>(jet_flavs[i]) << ", btag = " << jet_btags[i] << std::endl;
-            std::cerr << "Error al evaluar la eficiencia para el jet " << i << ": " << e.what() << ". Value of eff=" << eff << std::endl;
-            continue;
-        }
-
-        float jet_w = 1;
-        if (jet_btags[i] > 0.6553) {
-            jet_w = sf;
-        } else {
-            jet_w = (1 - sf * eff) / (1 - eff);
-        }
-
-        weight *= jet_w;
-    }
-    return weight;
-}
-
-
-// /**
-//     @short select gen candidates (for now only charged)
-// */
-// rvec_b selectGenCandidates(const rvec_i &pdgId) {
-
-//     std::vector<bool> isValidCand(pdgId.size(),false);
-
-//     //select charged particles only
-//     for(size_t i=0; i<pdgId.size(); i++) {
-
-//         if( !Rivet::PID::isCharged(pdgId[i]) ) continue;
-
-//         //... do other selections here
-
-//         isValidCand[i]=0;
-//     }
-
-//     return rvec_b(isValidCand.begin(), isValidCand.end());
-// }
-
-
-/**
-    @short runs fastjet on a collection of particles and returns jets with pt, eta, phi
-*/
-
-struct JetAntikTReclus {
-    vector<float> pt;
-    vector<float> eta;
-    vector<float> phi;
-    vector<float> mass;
-    int n_jets;
-    float R;
-    float ptmin;
-};
-
-inline JetAntikTReclus buildJets(const ROOT::VecOps::RVec<float> &pt,
-                  const ROOT::VecOps::RVec<float> &eta,
-                  const ROOT::VecOps::RVec<float> &phi,
-                  const ROOT::VecOps::RVec<int> &pdgId,
-                  float R = .8, float ptmin = 400.) {
-
-    using namespace fastjet;
-
-    std::vector<PseudoJet> particles;
-    for (size_t i = 0; i < pt.size(); i++) {
-        float p_mass = get_mass(pdgId[i]);
-        if (p_mass < 0) continue;
-        ROOT::Math::PtEtaPhiMVector p4(pt[i], eta[i], phi[i], p_mass);
-        particles.emplace_back(p4.px(), p4.py(), p4.pz(), p4.energy());
-    }
-
-    JetDefinition jet_def(antikt_algorithm, R);
-    ClusterSequence cs(particles, jet_def);
-    Selector selector_jets = SelectorPtMin(ptmin) && SelectorAbsRapMax(2.5);
-    auto jets = sorted_by_pt(selector_jets(cs.inclusive_jets()));
-
-    JetAntikTReclus jet_data;
-    for (const auto &jet : jets) {
-        jet_data.pt.push_back(jet.pt());
-        jet_data.eta.push_back(jet.eta());
-        jet_data.phi.push_back(jet.phi_std());
-        jet_data.mass.push_back(jet.m());
-    }
-    jet_data.n_jets = jet_data.pt.size();
-    jet_data.R = R;
-    jet_data.ptmin = ptmin;
-//     //std::cout << "Number of particles: " << jet_data.pt.size() << std::endl;
-
-    return jet_data;
-}
-
 struct Lepton{
     std::vector<float> pt;
     std::vector<float> eta;
     std::vector<float> phi;
     std::vector<int> pdgId;
+    std::vector<int> leptonIdx; // Index of the lepton in the original collection
     std::vector<float> dR_to_jet;
     std::vector<float> pt_rel_to_jet;
     int n_lep=0;
+    int n_lep_after2Dcuts=0; // New variable to count leptons after 2D cuts
     std::vector<float> closest_jet_pt; // To store the pt of the closest jet to the lepton, if needed
     std::vector<float> closest_jet_eta; // To store the eta of the closest jet to the lepton, if needed
     std::vector<float> closest_jet_phi; // To store the phi of the closest jet to the lepton, if needed
@@ -367,83 +231,6 @@ inline float compute_ptrel_new(const TLorentzVector& muon,
     return muon.Vect().Cross(jet_corr_no_mu.Vect().Unit()).Mag();
 }
 
-inline float compute_ptrel(const TLorentzVector& muon,
-                            const TLorentzVector& jet_corr,
-                            float jet_rawFactor, float& dR, bool muonBelongsToJet = false) {
-    // Jet with no correction
-    TLorentzVector jet_raw = jet_corr * (1.0 - jet_rawFactor);
-
-
-    // std::cout << "Muon pt: " << muon.Pt() << ", eta: " << muon.Eta() << ", phi: " << muon.Phi() << std::endl;
-    // std::cout << "Jet corr pt: " << jet_corr.Pt() << ", eta: " << jet_corr.Eta() << ", phi: " << jet_corr.Phi() << ", rawFactor: " << jet_rawFactor << std::endl;
-    // std::cout << "Jet raw pt: " << jet_raw.Pt() << ", eta: " << jet_raw.Eta() << ", phi: " << jet_raw.Phi() << std::endl;
-    // std::cout << "muon.DeltaR(jet_corr): " << muon.DeltaR(jet_corr) << std::endl;
-    // std::cout << "deltaR(muon, jet_corr): " << deltaR(muon.Eta(), muon.Phi(), jet_corr.Eta(), jet_corr.Phi())  << std::endl;
-
-    // If deltaR(lep, jet)>0.4, do not sustract the muon from the jet
-    if (muon.DeltaR(jet_corr) > 0.4 || !muonBelongsToJet) {
-        dR = muon.DeltaR(jet_corr);
-        // std::cout << "\t DeltaR is greater than 0.4 (" << dR << "), returning ptrel: " << muon.Vect().Cross(jet_corr.Vect().Unit()).Mag() << std::endl;
-        return muon.Vect().Cross(jet_corr.Vect().Unit()).Mag();
-    }
-
-    // Verify that the jet and the lepton are not the same vector
-    // if (muon.DeltaR(jet_raw) < 1e-4) {
-    //     //std::cout << "\t Jet and muon are the same vector, returning -1" << std::endl;
-    //     return -1;  // will look for the next closest jet
-    // }
-
-    //Uncorrected the muon (it was embedded in the raw jet)
-    float l1corrFactor;
-    if(abs(1.0-jet_rawFactor)>1e-5){
-        l1corrFactor = 1.0 / (1.0 - jet_rawFactor);
-    }else{
-        l1corrFactor = 1.0; // If the jet_rawFactor is very close to 1, we assume no correction is needed
-    }
-    TLorentzVector muon_raw = muon;// * (1.0 / l1corrFactor);
-
-    //Jet without the muon, in RAW scale
-    TLorentzVector jet_raw_no_mu = jet_raw - muon_raw;
-
-    // Jet corrected without the muon
-    float scale = jet_corr.Pt() / jet_raw.Pt();  // same factor applied to the whole jet
-    TLorentzVector jet_corr_no_mu = jet_raw_no_mu * scale;
-
-    // Get the dR between the muon and the corrected jet without the muon
-    dR = muon.DeltaR(jet_corr_no_mu);
-
-    // std::cout << "\t l1corrFactor: " << l1corrFactor << std::endl;
-    // std::cout << "\t muon_raw_pt: " << muon_raw.Pt() << ", eta: " << muon_raw.Eta() << ", phi: " << muon_raw.Phi() << std::endl;
-    // std::cout << "\t jet_raw_no_mu_pt: " << jet_raw_no_mu.Pt() << ", eta: " << jet_raw_no_mu.Eta() << ", phi: " << jet_raw_no_mu.Phi() << std::endl;
-    // std::cout << "\t scale: " << scale << std::endl;
-    // std::cout << "\t jet_corr_no_mu_pt: " << jet_corr_no_mu.Pt() << ", eta: " << jet_corr_no_mu.Eta() << ", phi: " << jet_corr_no_mu.Phi() << std::endl;
-    // std::cout << "\t dR(muon, jet_corr_no_mu): " << dR << std::endl;
-
-    // If the corrected jet without the muon has a pt lower than 15 GeV, return -1 (indicating no valid ptrel)
-    if (jet_corr_no_mu.Pt() < 15) {
-        return -1.0;
-    }
-
-    // Final jet = corrected jet without the muon + corrected muon
-    // with this, we can easily get the corrected jet without the muon by sustracting the muon
-    TLorentzVector jet_final = jet_corr_no_mu + muon;
-
-   // Get the dR between the muon and the corrected jet without the muon
-    dR = muon.DeltaR(jet_corr_no_mu);
-
-
-    // std::cout << "\t jet_final_pt: " << jet_final.Pt() << ", eta: " << jet_final.Eta() << ", phi: " << jet_final.Phi() << std::endl;
-    // std::cout << "\t dR(muon, jet_final): " << dR << std::endl;
-
-    // pTrel
-    float ptrel = muon.Vect().Cross((/*jet_final - muon*/jet_corr_no_mu).Vect().Unit()).Mag();
-
-    // std::cout << "\t ptrel: " << ptrel << std::endl;
-
-    return ptrel;
-}
-
-
 inline ROOT::VecOps::RVec<Short_t> calculateGenCandsJetIdx(const ROOT::VecOps::RVec<int>& GenJetCands_genCandsIdx,
                                                            const ROOT::VecOps::RVec<int>& GenJetCands_jetIdx,
                                                            int nGenCands, int nGenJet) {
@@ -464,176 +251,190 @@ inline ROOT::VecOps::RVec<Short_t> calculateGenCandsJetIdx(const ROOT::VecOps::R
     return GenCands_jetIdx;
 }
 
-inline Lepton triggerLepton(const rvec_f &pt_le, const rvec_f &eta_le, const rvec_f &phi_le, const rvec_i &pdgId_le, const rvec_i &jetIdx_le, const rvec_b &tightId_le, /*const rvec_f &ak4_lesubDeltaeta, const rvec_f &ak4_lesubDeltaphi, const rvec_f &ak4_lesubfactor,*/ const rvec_f &PFCands_pt, const rvec_f &PFCands_eta, const rvec_f &PFCands_phi, const rvec_i &PFCands_pdgId, const rvec_f &ak4_pt, const rvec_f &ak4_eta, const rvec_f &ak4_phi, const rvec_f &ak4_mass, const rvec_b &ak4_passJetIdTightLepVeto, const rvec_f &ak4_rawFactor, const rvec_f &ak4_area, const float &rho_PU, const float run, float ak4_pt_threshold = 25.0, const bool isMuon = true, bool AnalysisCuts = false, bool GenLevel = false, const float thr_dR = 0.3, const float thr_ptrel = 30.0) {
-    // std::cout << "Is GenLevel: " << GenLevel << std::endl;
-    // std::cout << "Trigger Lepton selection: isMuon = " << isMuon << ", AnalysisCuts = " << AnalysisCuts << std::endl;
-    // std::cout << "Jet threshold: " << ak4_pt_threshold << std::endl;
-    ROOT::VecOps::RVec<bool> tightId_le_local;// = tightId_le; // Crear una copia modificable
-
-    if (tightId_le.size() == 0) {
-        // std::cout << "Warning: tightId_le is empty, assuming all leptons are tight." << std::endl;
-        tightId_le_local = rvec_b(pt_le.size(), true); // Asumimos que todos son tight
-    }
-    else{
-        tightId_le_local = tightId_le; // Usar la copia local
-    }
+inline Lepton pickLepton(const rvec_f &pt_mu, const rvec_f &eta_mu, const rvec_f &phi_mu, const rvec_i &pdgId_mu, const rvec_f &pt_e, const rvec_f &eta_e, const rvec_f &phi_e, const rvec_i &pdgId_e){
+    //Count how many leptons with pt>55 and eta<2.4 are in the event. If more than one, or none, return empty Lepton struct. Otherwise, return the lepton.
     Lepton lepton;
-    double pt_lim;
-    double eta_max = 99.; //3.
-    double ptrel_max = 20.; //30.0
-    if (AnalysisCuts) {
-        eta_max = 2.4;
-        ptrel_max = 30.;
+
+    for (size_t i = 0; i < pt_mu.size(); i++) {
+        if (pt_mu[i] > 55.0 && abs(eta_mu[i]) < 2.4 && abs(pdgId_mu[i]) == 13) {
+            lepton.pt.push_back(pt_mu[i]);
+            lepton.eta.push_back(eta_mu[i]);
+            lepton.phi.push_back(phi_mu[i]);
+            lepton.pdgId.push_back(pdgId_mu[i]);
+            lepton.leptonIdx.push_back(i);
+        }
     }
 
-    //Create the correction object
-    // fs::path fname_ak4_2023 = "./2023jec/jet_jerc.json.gz";
-//TENGO QUE LLEVAR ESTO AL PYTHON FUERA DEL C++#################################
-    // fs::path fname_ak4_2023 = "./jet_jerc.json.gz";
-    // assert(fs::exists(fname_ak4_2023));
-    // unique_ptr<correction::CorrectionSet> cset = correction::CorrectionSet::from_file(fname_ak4_2023.string());
-
-    for (size_t i = 0; i < pt_le.size(); i++) {
-        
-
-        // std::cout << "Es un tight lepton: " << i << ", valor --> " << tightId_le_local[i]  << std::endl;
-        if((abs(pdgId_le[i]) != 11 && abs(pdgId_le[i]) != 13) || !tightId_le_local[i]) continue;
-
-        
-        double min_dR_to_jet = 999.;
-        double min_pt_rel_to_jet = -1.;
-
-        if ((isMuon || AnalysisCuts) && abs(pdgId_le[i]) == 13){
-            pt_lim = 45.0;
-            if (AnalysisCuts) pt_lim = 55.0;   
-        } else if ((!isMuon || AnalysisCuts) && abs(pdgId_le[i]) == 11){
-            pt_lim = 120.0;
-        }
-        
-        TLorentzVector tem_closest_jet;
-        int tmp_closest_jet_idx;
-
-        // Muones y electrones con pt > pt_lim GeV: aplicar criterio de P_T^rel
-        if ((pt_le[i] > pt_lim) && (abs(eta_le[i]) < eta_max)) {
-            // if(jetIdx_le[i] < 0) continue; // Si el jetIdx es negativo, no pertenece a ningún jet
-            
-            bool isInsideJet = false;
-            TLorentzVector lepton_p4;
-            lepton_p4.SetPtEtaPhiM(pt_le[i], eta_le[i], phi_le[i], get_mass(pdgId_le[i]));
-            // TVector3 lepton_p3(pt_le[i] * cos(phi_le[i]), pt_le[i] * sin(phi_le[i]), pt_le[i] * sinh(eta_le[i]));
-
-            // std::cout << endl << "Lepton " << i << ": ptx = " << lepton_p3.Px() << ", pty = " << lepton_p3.Py() << ", ptz = " << lepton_p3.Pz() << ", pt = " << pt_le[i] << ", eta = " << eta_le[i] << ", phi = " << phi_le[i] << ", pdgId = " << pdgId_le[i] << endl;
-            for (size_t j = 0; j < ak4_eta.size(); j++) {
-
-                //Continue if the jet does not pass the tight ID or is below the threshold
-                if (!ak4_passJetIdTightLepVeto[j] ) continue; // Si el jet no pasa el ID tight, lo ignoramos
-                //if(jetIdx_le[i] != static_cast<int>(j)) continue; // Only consider the jet that the lepton belongs to
-                TLorentzVector jet_corr_p4;
-                jet_corr_p4.SetPtEtaPhiM(ak4_pt[j], ak4_eta[j], ak4_phi[j], ak4_mass[j]); // Assuming mass is 0 for jets
-                // TVector3 jet_p3(ak4_pt[j] * cos(ak4_phi[j]), ak4_pt[j] * sin(ak4_phi[j]), ak4_pt[j] * sinh(ak4_eta[j]));
-                // TVector3 adjusted_jet_p3 = jet_p3;
-                // if(deltaR(lepton_p3, jet_p3)<0.4) adjusted_jet_p3 -= lepton_p3; //Only substract the lepton when dR is <0.4
-
-                // std::cout << endl << "\tJet " << j << ": ptx = " << jet_p3.Px() << ", pty = " << jet_p3.Py() << ", ptz = " << jet_p3.Pz();
-
-                float tmp_ptrel;
-
-                float dR;
-
-                // std::cout << endl << "########Jet number: " << j << ", muon_idxJet = " << jetIdx_le[i] << "##########" << endl;
-                // std::cout << "Corrected Jet (without muon): Pt = " << (- ak4_lesubfactor[j] + 1) << ", eta = " << ak4_lesubDeltaeta+ak4_eta[j] << ", phi = " << ak4_lesubDeltaphi+ak4_phi[j] << endl; 
-                bool muon_belongs_to_jet = (jetIdx_le[i] == static_cast<int>(j));
-                //std::cout << "\t muon_belongs_to_jet = " << muon_belongs_to_jet << std::endl;
-
-                // dR = lepton_p4.DeltaR(jet_corr_p4);
-                tmp_ptrel = compute_ptrel_new(lepton_p4, jet_corr_p4, dR, ak4_pt_threshold);
-
-                if(muon_belongs_to_jet && dR < 0.4) {
-
-                    tmp_ptrel = compute_ptrel_new(lepton_p4, jet_corr_p4, dR, ak4_pt_threshold, ak4_rawFactor[j], ak4_area[j], rho_PU, run);
-                }
-
-                // std::cout << " min_dR_to_jet = " << min_dR_to_jet << ", deltaR = " << deltaR(eta_le[i], phi_le[i], ak4_eta[j], ak4_phi[j])  << ", deltaRpart = " << dR << endl;
-                // std::cout << "\tdeltaRadj = " << deltaR(lepton_p3, adjusted_jet_p3)  << endl;
-
-                // If this jet closer than all the previous jets, update the minimum dR and pt_rel
-                if ((min_dR_to_jet > dR)&&(tmp_ptrel != -1.0)) {
-
-                    min_pt_rel_to_jet = tmp_ptrel;
-                    min_dR_to_jet = dR;
-                    tem_closest_jet = jet_corr_p4; // Save the closest jet
-                    tmp_closest_jet_idx = j; // Save the index of the closest jet
-                }
-            }
-            // Comment this three lines if you do not want to apply 2D cuts (deltaR and ptrel)
-            // if(min_dR_to_jet < 0.4 && min_pt_rel_to_jet < ptrel_max) {
-            //     isInsideJet = true;
-            // }   
-            if ((min_dR_to_jet>thr_dR || min_pt_rel_to_jet>thr_ptrel) && (min_dR_to_jet!= 999. && min_pt_rel_to_jet != -1.)) {
-                lepton.pt.push_back(pt_le[i]);
-                lepton.eta.push_back(eta_le[i]);
-                lepton.phi.push_back(phi_le[i]);
-                lepton.pdgId.push_back(pdgId_le[i]);
-                lepton.dR_to_jet.push_back(min_dR_to_jet);
-                lepton.pt_rel_to_jet.push_back(min_pt_rel_to_jet);
-                lepton.closest_jet_pt.push_back(tem_closest_jet.Pt());
-                lepton.closest_jet_eta.push_back(tem_closest_jet.Eta());
-                lepton.closest_jet_phi.push_back(tem_closest_jet.Phi());
-                lepton.closest_jet_mass.push_back(tem_closest_jet.M());
-                lepton.closest_jet_idx.push_back(tmp_closest_jet_idx); // Store the index of the closest jet
-                lepton.closest_jet_threshold = ak4_pt_threshold; // Store the threshold for the closest jet
-                // std::cout << "#########dR: " << min_dR_to_jet << ", ptrel: " << min_pt_rel_to_jet << ", ptrelNANO: " << le_jetptrel[i] << "##########" << endl << std::endl;
-                if(min_dR_to_jet<0.05 && min_pt_rel_to_jet>50){
-                    // std::cout << endl << "Lepton " << i << ": ptx = " << lepton_p3.Px() << ", pty = " << lepton_p3.Py() << ", ptz = " << lepton_p3.Pz() << ", eta = " << eta_le[i] << ", phi = " << phi_le[i] << endl;
-                    // std::cout << endl << "\tJet " << ": ptx = " << tem_jet_p3.Px() << ", pty = " << tem_jet_p3.Py() << ", ptz = " << tem_jet_p3.Pz() << ", eta = " << tmp_jet_eta << ", phi = " << tmp_jet_phi;
-                    // std::cout << ", min_dR_to_jet = " << min_dR_to_jet << ", deltaR = " << std::sqrt(reco::deltaR2(eta_le[i], phi_le[i], tmp_jet_eta, tmp_jet_phi)) << endl;
-                    // std::cout << "\t\t tmp_ptrel = " << min_pt_rel_to_jet << endl;
-                }
-            }
-        }
-
-        // Electrones con 45 < pt < 120 GeV: aplicar criterio de aislamiento
-        if ((!isMuon || AnalysisCuts) && abs(pdgId_le[i]) == 11 && pt_le[i] < 120) {
-            if(AnalysisCuts && pt_le[i] < 60.0) continue;
-            else if (!AnalysisCuts && pt_le[i] < 45.0) continue;
-            // Calcular aislamiento
-            float I_ch = 0.0, I_gamma = 0.0, I_neutral = 0.0;
-            for (size_t j = 0; j < PFCands_pt.size(); j++) {
-                float dR = deltaR(eta_le[i], phi_le[i], PFCands_eta[j], PFCands_phi[j]);
-                if (dR > 0.3) continue; // Fuera del cono de aislamiento
-
-                if (abs(PFCands_pdgId[j]) == 211) { // Hadrón cargado
-                    I_ch += PFCands_pt[j];
-                } else if (PFCands_pdgId[j] == 22) { // Fotón
-                    I_gamma += PFCands_pt[j];
-                } else if (abs(PFCands_pdgId[j]) == 130) { // Hadrón neutro
-                    I_neutral += PFCands_pt[j];
-                }
-            }
-
-            // Aislamiento combinado
-            float I_combined = I_ch + I_gamma + I_neutral;
-            float E_T = pt_le[i];
-            float isolation_threshold = 0.0;
-
-            if (abs(eta_le[i]) < 1.479) { // Barrel
-                isolation_threshold = 0.029 + 0.51 / E_T;
-            } else { // Endcaps
-                isolation_threshold = 0.0445 + 0.963 / E_T;
-            }
-
-            // Aplicar criterio de aislamiento
-            if ((I_combined / E_T) < isolation_threshold) {
-                lepton.pt.push_back(pt_le[i]);
-                lepton.eta.push_back(eta_le[i]);
-                lepton.phi.push_back(phi_le[i]);
-                lepton.pdgId.push_back(pdgId_le[i]);
-            }
+    for (size_t i = 0; i < pt_e.size(); i++) {
+        if (pt_e[i] > 55.0 && abs(eta_e[i]) < 2.4 && abs(pdgId_e[i]) == 11) {
+            lepton.pt.push_back(pt_e[i]);
+            lepton.eta.push_back(eta_e[i]);
+            lepton.phi.push_back(phi_e[i]);
+            lepton.pdgId.push_back(pdgId_e[i]);
+            lepton.leptonIdx.push_back(i);
         }
     }
 
     lepton.n_lep = lepton.pt.size();
     return lepton;
+}
+
+//Function to the lepton struct the information related to the closest jet
+inline Lepton addLeptonJetInfo(const Lepton &lepton_in, const rvec_i &jetIdx_mu, const rvec_i &jetIdx_e, const rvec_f &pt_pfcands, const rvec_f &eta_pfcands, const rvec_f &phi_pfcands, const rvec_i &pdgId_pfcands, const rvec_f &ak4_pt, const rvec_f &ak4_eta, const rvec_f &ak4_phi, const rvec_f &ak4_mass, const rvec_i &ak4_jetId, const rvec_f &ak4_rawFactor, const rvec_f &ak4_area, const float &rho_PU, const float run, float ak4_pt_threshold = 15.0) {
+    //First thing is to check that lepton_in only contains 1 single lepton. If not, return empty struct.
+    Lepton lepton_out;  // Create empty output struct
+    if (lepton_in.n_lep != 1) {
+        return lepton_out;  // Return empty if input doesn't have exactly 1 lepton
+    }
+
+    //Secondly, for electrons with pt<120 GeV, we do not add the jet info because the isolation is computed differently.
+    if (abs(lepton_in.pdgId[0]) == 11 && lepton_in.pt[0] <= 120.0) {
+
+        float I_ch = 0.0, I_gamma = 0.0, I_neutral = 0.0;
+        for (size_t j = 0; j < pt_pfcands.size(); j++) {
+            float dR = deltaR(lepton_in.eta[0], lepton_in.phi[0], eta_pfcands[j], phi_pfcands[j]);
+            if (dR > 0.3) continue; // Outside the isolation cone
+
+            if (abs(pdgId_pfcands[j]) == 211) { // Charged hadron
+                I_ch += pt_pfcands[j];
+            } else if (pdgId_pfcands[j] == 22) { // Photon
+                I_gamma += pt_pfcands[j];
+            } else if (abs(pdgId_pfcands[j]) == 130) { // Neutral hadron
+                I_neutral += pt_pfcands[j];
+            }
+        }
+
+        // Combined isolation
+        float I_combined = I_ch + I_gamma + I_neutral;
+        float E_T = lepton_in.pt[0];
+        float isolation_threshold = 0.0;
+
+        if (abs(lepton_in.eta[0]) < 1.479) { // Barrel
+            isolation_threshold = 0.029 + 0.51 / E_T;
+        } else { // Endcaps
+            isolation_threshold = 0.0445 + 0.963 / E_T;
+        }
+
+        // Apply isolation criterion
+        if ((I_combined / E_T) < isolation_threshold) {
+            lepton_out.pt.push_back(lepton_in.pt[0]);
+            lepton_out.eta.push_back(lepton_in.eta[0]);
+            lepton_out.phi.push_back(lepton_in.phi[0]);
+            lepton_out.pdgId.push_back(lepton_in.pdgId[0]);
+            lepton_out.leptonIdx.push_back(lepton_in.leptonIdx[0]);
+            lepton_out.n_lep_after2Dcuts = 1; // Mark that the lepton passed the 2D cuts
+            lepton_out.n_lep = 1;
+        }
+    }
+
+    // For muons and high-pt electrons, we add the jet info
+    else if ( (abs(lepton_in.pdgId[0]) == 13) || (abs(lepton_in.pdgId[0]) == 11 && lepton_in.pt[0] > 120.0) ) {
+        //Get the index of the jet according to the BTVnano
+        int leptonIdx = lepton_in.leptonIdx[0];
+        int jetIdx = -1;
+        if (abs(lepton_in.pdgId[0]) == 13) { // Muon
+            jetIdx = jetIdx_mu[leptonIdx];
+        } else if (abs(lepton_in.pdgId[0]) == 11) { // Electron
+            jetIdx = jetIdx_e[leptonIdx];
+        }
+
+        // Lorentz vector of the lepton
+        TLorentzVector lepton_p4;
+        lepton_p4.SetPtEtaPhiM(lepton_in.pt[0], lepton_in.eta[0], lepton_in.phi[0], get_mass(lepton_in.pdgId[0]));
+
+        // Variables to store the closest jet info
+        double min_dR_to_jet = 999.;
+        double min_pt_rel_to_jet = -1.;
+        TLorentzVector tem_closest_jet;
+        int tmp_closest_jet_idx;
+
+        //Run over all AK4 jets to find the closest one
+        for (size_t j = 0; j < ak4_pt.size(); j++) {
+
+            //First, if jet does not pass the tight lepton Vecto, skip it
+            if (ak4_jetId[j] < 6) continue;
+
+            // Second, build lorentz vector of the jet
+            TLorentzVector jet_p4;
+            jet_p4.SetPtEtaPhiM(ak4_pt[j], ak4_eta[j], ak4_phi[j], ak4_mass[j]);
+
+            float tmp_ptrel = -1.;
+            float dR = -1.;
+
+            // The lepton belongs to the jet if its index matches the jetIdx from BTVnano
+            bool leptonBelongsToJet = (static_cast<int>(j) == jetIdx);
+
+            //Compute a first stimated ptrel and dR
+            tmp_ptrel = compute_ptrel_new(lepton_p4, jet_p4, dR, ak4_pt_threshold);
+
+            if (leptonBelongsToJet && dR < 0.4) {
+                // If the lepton belongs to the jet, recompute ptrel with the new method, substracting the lepton from the jet
+                tmp_ptrel = compute_ptrel_new(lepton_p4, jet_p4, dR, ak4_pt_threshold, ak4_rawFactor[j], ak4_area[j], rho_PU, run);
+            }
+
+            // Store the closest jet info
+            if ((min_dR_to_jet > dR) && (tmp_ptrel != -1.0)){
+                min_dR_to_jet = dR;
+                min_pt_rel_to_jet = tmp_ptrel;
+                tem_closest_jet = jet_p4; // Save the closest jet p4
+                tmp_closest_jet_idx = j; // Save the index of the closest jet
+            }
+        }
+
+        //Save the lepton info
+        if((min_dR_to_jet != 999.)&&(min_pt_rel_to_jet != -1.0)){
+            lepton_out.pt.push_back(lepton_in.pt[0]);
+            lepton_out.eta.push_back(lepton_in.eta[0]);
+            lepton_out.phi.push_back(lepton_in.phi[0]);
+            lepton_out.pdgId.push_back(lepton_in.pdgId[0]);
+            lepton_out.leptonIdx.push_back(lepton_in.leptonIdx[0]);
+            lepton_out.dR_to_jet.push_back(min_dR_to_jet);
+            lepton_out.pt_rel_to_jet.push_back(min_pt_rel_to_jet);
+            lepton_out.closest_jet_pt.push_back(tem_closest_jet.Pt());;
+            lepton_out.closest_jet_eta.push_back(tem_closest_jet.Eta());;
+            lepton_out.closest_jet_phi.push_back(tem_closest_jet.Phi());;
+            lepton_out.closest_jet_mass.push_back(tem_closest_jet.M());;
+            lepton_out.closest_jet_idx.push_back(tmp_closest_jet_idx);
+            lepton_out.closest_jet_threshold = ak4_pt_threshold;
+            lepton_out.n_lep = 1;
+            lepton_out.n_lep_after2Dcuts = 0; // Mark that the lepton no passed the 2D cuts
+            if(min_dR_to_jet > 0.3 || min_pt_rel_to_jet > 30.0){
+                lepton_out.n_lep_after2Dcuts = 1; // Mark that the lepton passed the 2D cuts
+            }
+        }
+    }
+
+    return lepton_out;
+}
+
+//Same function pickLepton but for gen level particles, i.e. there are no GenMuons or GenElectrons, only GenCands
+inline Lepton pickGenLepton(const rvec_f &pt_gencands, const rvec_f &eta_gencands, const rvec_f &phi_gencands, const rvec_i &pdgId_gencands){
+    //Count how many leptons with pt>55 and eta<2.4 are in the event. If more than one, or none, return empty Lepton struct. Otherwise, return the lepton.
+    Lepton lepton;
+
+    for (size_t i = 0; i < pt_gencands.size(); i++) {
+        if (pt_gencands[i] > 55.0 && abs(eta_gencands[i]) < 2.4 && (abs(pdgId_gencands[i]) == 11 || abs(pdgId_gencands[i]) == 13)) {
+            lepton.pt.push_back(pt_gencands[i]);
+            lepton.eta.push_back(eta_gencands[i]);
+            lepton.phi.push_back(phi_gencands[i]);
+            lepton.pdgId.push_back(pdgId_gencands[i]);
+            lepton.leptonIdx.push_back(i);
+        }
+    }
+
+    lepton.n_lep = lepton.pt.size();
+    return lepton;
+}
+
+// Same function as addLeptonJetInfo but for gen level leptons. As we do not have to check trigger selections on gen level, this function should unify both: pickLepton and addLeptonJetInfo, i.e. it should pick events with exactly one gen lepton, and then pass the 2D isolation if muon or high-pt electron, while for low-pt electrons it should compute the isolation as in addLeptonJetInfo.
+inline Lepton GenLepton(const rvec_f &pt_gencands, const rvec_f &eta_gencands, const rvec_f &phi_gencands, const rvec_i &pdgId_gencands, const rvec_i &jetIdx_gencands, const rvec_f &genak4_pt, const rvec_f &genak4_eta, const rvec_f &genak4_phi, const rvec_f &genak4_mass) {
+    //First thing is to build the lepton struct with events with exactly one lepton
+    Lepton pick_lepton = pickGenLepton(pt_gencands, eta_gencands, phi_gencands, pdgId_gencands);
+
+    //Once we have the single lepton struct, we can reuse the same function addLeptonJetInfo, passing trivial values for Jet_rawFactor, Jet_area, rho and run, as they are not needed at gen level. For gen level we do not have separate muon/electron jet indices, so we pass the same for both: in the function, we use the index we saved in the lepton struct, so it does not matter.
+    Lepton lepton_out = addLeptonJetInfo(pick_lepton, jetIdx_gencands, jetIdx_gencands, pt_gencands, eta_gencands, phi_gencands, pdgId_gencands, genak4_pt, genak4_eta, genak4_phi, genak4_mass, rvec_i(genak4_pt.size(), 7), rvec_f(genak4_pt.size(), 0.0), rvec_f(genak4_pt.size(), 0.0), 0.0, 0.0);
+
+    return lepton_out;
 }
 
 inline ROOT::RVec<bool> pass_JetIdTightLepVeto(const ROOT::RVec<float>& Jet_eta,
@@ -666,65 +467,6 @@ inline ROOT::RVec<bool> pass_JetIdTightLepVeto(const ROOT::RVec<float>& Jet_eta,
     // return Jet_passJetIdTightLepVeto;
 }
 
-inline Lepton CombineLeptons(const Lepton& muons, const Lepton& electrons) {
-    Lepton combined;
-
-    // Combinar los vectores de propiedades
-    combined.pt.insert(combined.pt.end(), muons.pt.begin(), muons.pt.end());
-    combined.pt.insert(combined.pt.end(), electrons.pt.begin(), electrons.pt.end());
-
-    combined.eta.insert(combined.eta.end(), muons.eta.begin(), muons.eta.end());
-    combined.eta.insert(combined.eta.end(), electrons.eta.begin(), electrons.eta.end());
-
-    combined.phi.insert(combined.phi.end(), muons.phi.begin(), muons.phi.end());
-    combined.phi.insert(combined.phi.end(), electrons.phi.begin(), electrons.phi.end());
-
-    combined.pdgId.insert(combined.pdgId.end(), muons.pdgId.begin(), muons.pdgId.end());
-    combined.pdgId.insert(combined.pdgId.end(), electrons.pdgId.begin(), electrons.pdgId.end());
-
-    combined.dR_to_jet.insert(combined.dR_to_jet.end(), muons.dR_to_jet.begin(), muons.dR_to_jet.end());
-    combined.dR_to_jet.insert(combined.dR_to_jet.end(), electrons.dR_to_jet.begin(), electrons.dR_to_jet.end());
-
-    combined.pt_rel_to_jet.insert(combined.pt_rel_to_jet.end(), muons.pt_rel_to_jet.begin(), muons.pt_rel_to_jet.end());
-    combined.pt_rel_to_jet.insert(combined.pt_rel_to_jet.end(), electrons.pt_rel_to_jet.begin(), electrons.pt_rel_to_jet.end());
-
-    combined.closest_jet_pt.insert(combined.closest_jet_pt.end(), muons.closest_jet_pt.begin(), muons.closest_jet_pt.end());
-    combined.closest_jet_pt.insert(combined.closest_jet_pt.end(), electrons.closest_jet_pt.begin(), electrons.closest_jet_pt.end());
-
-    combined.closest_jet_eta.insert(combined.closest_jet_eta.end(), muons.closest_jet_eta.begin(), muons.closest_jet_eta.end());
-    combined.closest_jet_eta.insert(combined.closest_jet_eta.end(), electrons.closest_jet_eta.begin(), electrons.closest_jet_eta.end());
-
-    combined.closest_jet_phi.insert(combined.closest_jet_phi.end(), muons.closest_jet_phi.begin(), muons.closest_jet_phi.end());
-    combined.closest_jet_phi.insert(combined.closest_jet_phi.end(), electrons.closest_jet_phi.begin(), electrons.closest_jet_phi.end());
-
-    combined.closest_jet_mass.insert(combined.closest_jet_mass.end(), muons.closest_jet_mass.begin(), muons.closest_jet_mass.end());
-    combined.closest_jet_mass.insert(combined.closest_jet_mass.end(), electrons.closest_jet_mass.begin(), electrons.closest_jet_mass.end());
-
-    combined.closest_jet_idx.insert(combined.closest_jet_idx.end(), muons.closest_jet_idx.begin(), muons.closest_jet_idx.end());
-    combined.closest_jet_idx.insert(combined.closest_jet_idx.end(), electrons.closest_jet_idx.begin(), electrons.closest_jet_idx.end());
-
-
-    // Actualizar el número total de leptones
-    combined.n_lep = muons.n_lep + electrons.n_lep;
-
-    // Actualizar el umbral del jet más cercano
-    combined.closest_jet_threshold = std::max(muons.closest_jet_threshold, electrons.closest_jet_threshold);
-
-    return combined;
-}
-
-//Funtion to calculate the missing transverse momentum (if we return -sqrt((px)^2+(py)^2) we get the missing energy, just in the opposite direction of the rest of PFCands)
-inline double Get_pTmiss (const rvec_f &pt, const rvec_f &phi){
-    double px = 0.0;
-    double py = 0.0;
-    for(size_t i=0; i<pt.size(); i++){
-        px += pt[i]*cos(phi[i]);
-        py += pt[i]*sin(phi[i]);
-    }
-    return sqrt(px*px + py*py);
-
-}
-
 struct JetReclus {
     int n_jets = 0;
     float R = 0.0;
@@ -736,6 +478,7 @@ struct JetReclus {
     std::vector<float> eta;
     std::vector<float> phi;
     std::vector<float> mass;
+    std::vector<float> area;
 
 //     std::vector<int> topjet_list;
 //     std::vector<int> topjet_list2;
@@ -743,7 +486,7 @@ struct JetReclus {
     // Constructor explícito para garantizar que se inicialicen a cero
     JetReclus() : n_jets(0), R(0.0), beta(0.0), ptmin(0.0), etamax(0.0), findLepton(false) {}
 
-    ClassDef(JetReclus, 1) // ROOT necesita esta macro para generar diccionarios
+    ClassDef(JetReclus, 2) // ROOT necesita esta macro para generar diccionarios (version 2: añadido area)
 };
 
 struct TopJetReclus {
@@ -792,11 +535,18 @@ inline void initPlugin(std::unique_ptr<NjettinessPlugin> & ptr, int N, float R0,
     }
 }
 
-inline XConeReclusteredJets buildXConeJets(const rvec_f &pt, const rvec_f &eta, const rvec_f &phi, const rvec_f &mass, const rvec_i &pdgId, int NJets = 2, float RJets = 1.2, float BetaJets = 2.0, float ptminJets = 200., float etamaxJets = 3., int NSubJets = 3, float RSubJets = 0.4, float BetaSubJets = 2., float ptminSubJets = 22.5, float etamaxSubJets = 3., bool doLeptonSpecific = true, bool usePseudoXCone = false){
+inline XConeReclusteredJets buildXConeJets(const Lepton &lep, const rvec_f &pt, const rvec_f &eta, const rvec_f &phi, const rvec_f &mass, const rvec_i &pdgId, int NJets = 2, float RJets = 1.2, float BetaJets = 2.0, float ptminJets = 200., float etamaxJets = 3., int NSubJets = 3, float RSubJets = 0.4, float BetaSubJets = 2., float ptminSubJets = 22.5, float etamaxSubJets = 3., bool doLeptonSpecific = true, bool usePseudoXCone = false){
 
+    //Return empty XConeReclusteredJets if lepton struct has more than one lepton
+    if (doLeptonSpecific && lep.n_lep != 1){
+        if(debug) std::cout << "More than one lepton found (or none) in buildXConeJets" << std::endl;
+        XConeReclusteredJets XConeJetsCollection;
+        return XConeJetsCollection;
+    }
+    // else std::cout << "Number of leptons found in buildXConeJets: " << lep.n_lep << std::endl;
     // const reco::Candidate *lepton(nullptr);
     std::vector<fastjet::PseudoJet>::iterator lepton_iter;// = _psj.end();
-    float lepton_min_pt = 00;
+    float lepton_min_pt = 55;
     float DRLeptonJet_ = 999.;
 
     //Convert particles to PseudoJets
@@ -825,18 +575,29 @@ inline XConeReclusteredJets buildXConeJets(const rvec_f &pt, const rvec_f &eta, 
         if (doLeptonSpecific){
             uint pdgid = abs(pdgId[i]);
             auto candPt = p4.pt();
+            // if((pdgid==11 || pdgid==13) && candPt > 55.0){
+            //     std::cout << "\tAdded PFCand with pt: " << p4.pt() << ", eta: " << p4.eta() << ", phi: " << p4.phi() << ", mass: " << p4.mass() << ", pdgId: " << pdgId[i] << std::endl;
+            // }
             if ((pdgid == 11 || pdgid == 13) && (candPt > lepton_min_pt)){
                 // lepton_iter = std::prev(_psj.end());
                 lepton_index = i_gl;
                 lepton_min_pt = candPt;
                 lepton = _psj.back();
             }
+            // if(puppiw[i] >= 0 && i<50){
+            //     // std::cout << "\tAdded PFCand with pt: " << p4.pt() << ", eta: " << p4.eta() << ", phi: " << p4.phi() << ", mass: " << p4.mass() << ", pdgId: " << pdgId[i] << ", puppiW: " << puppiw[i] << std::endl;
+            //     // std::cout << p4.pt() << ";" << p4.eta() << ";" << p4.phi() << ";" << p4.mass() << ";" << pdgId[i] << ";" << puppiw[i] << ";" << puppiwnolep[i] << ";" << std::endl;
+            // }
         }//doLeptonSpecific
     }//for loop over pfcands of the event
 
     bool foundLepton = false;
 
     if (doLeptonSpecific && lepton != 0.){
+        if(abs(lepton_min_pt - lep.pt[0])/lep.pt[0] > 0.00000001){
+            // std::cout << "PT del lepton PFCand es: " << lepton_min_pt << ", eta: " << _psj[lepton_index].eta() << ", phi: " << _psj[lepton_index].phi() <<  ", pdgId: " << pdgId[lepton_index] << ", puppiW: " << puppiw[lepton_index] << std::endl;
+            // std::cout << "El pT del lepton Muon/Electron es: " << lep.pt[0] << ", eta: " << lep.eta[0] << ", phi: " << lep.phi[0] << ", pdgId: " << lep.pdgId[0] << std::endl;
+        }
         if(debug) std::cout << "PT del lepton es: " << lepton_min_pt << std::endl;
         // lepton = *lepton_iter;
         if(debug) std::cout << "PT del lepton es1: " << lepton.pt() << std::endl;
@@ -872,9 +633,18 @@ inline XConeReclusteredJets buildXConeJets(const rvec_f &pt, const rvec_f &eta, 
     std::unique_ptr<NjettinessPlugin> plugin_xcone;
     initPlugin(plugin_xcone, NJets, RJets, BetaJets, usePseudoXCone);
     JetDefinition jet_def_xcone(plugin_xcone.get());
-    ClusterSequence clust_seq_xcone(_psj, jet_def_xcone);
+    // Add GhostedAreaSpec for jet area calculation
+    fastjet::GhostedAreaSpec ghost_spec_xcone(5.0);  // eta_max = 5.0
+    fastjet::ClusterSequenceArea clust_seq_xcone(_psj, jet_def_xcone, ghost_spec_xcone);
     Selector selector_fatjets = SelectorPtMin(10); //pt larger than 10GeV (this is the loosest criteria, for the jet where the lepton is clustered; the main fatjet would have to be larger than 400GeV)
     std::vector<fastjet::PseudoJet> fatjets = sorted_by_pt(selector_fatjets(clust_seq_xcone.inclusive_jets()));
+
+    //Print some info about the fatjets like number, pt, eta, phi, mass, area, etc.
+    // std::cout << "Number of fatjets clustered: " << fatjets.size() << std::endl;
+    // for (unsigned int i = 0; i < fatjets.size(); i++){
+    //     const auto &fj = fatjets[i];
+    //     std::cout << "\tFatjet " << i << ": pt = " << fj.pt() << ", eta = " << fj.eta() << ", phi = " << fj.phi_std() << ", mass = " << fj.m() << ", area = " << fj.area() << std::endl;
+    // }
 
 
 
@@ -892,6 +662,7 @@ inline XConeReclusteredJets buildXConeJets(const rvec_f &pt, const rvec_f &eta, 
         XConeJetsCollection.fatjets.eta.push_back(fjet.eta());
         XConeJetsCollection.fatjets.phi.push_back(fjet.phi_std());
         XConeJetsCollection.fatjets.mass.push_back(fjet.m());
+        XConeJetsCollection.fatjets.area.push_back(fjet.area());
     }
     XConeJetsCollection.fatjets.n_jets = XConeJetsCollection.fatjets.pt.size();
     XConeJetsCollection.fatjets.R = RJets;
@@ -985,19 +756,28 @@ inline XConeReclusteredJets buildXConeJets(const rvec_f &pt, const rvec_f &eta, 
 
         //Run second clustering step (subjets) for each fat jet
         std::vector<fastjet::PseudoJet> subjets;
-        std::unique_ptr<ClusterSequence> clust_seq_sub;
+        std::unique_ptr<fastjet::ClusterSequenceArea> clust_seq_sub;
         vector<int> list_sub;
         if(enoughParticles && doSubjets){
             std::unique_ptr<NjettinessPlugin> plugin_xcone_sub;
             initPlugin(plugin_xcone_sub, thisNSubJets, RSubJets, BetaSubJets, usePseudoXCone);
             JetDefinition jet_def_sub(plugin_xcone_sub.get());
-            clust_seq_sub.reset(new ClusterSequence(particle_in_fatjet, jet_def_sub));
+            // Add GhostedAreaSpec for jet area calculation
+            fastjet::GhostedAreaSpec ghost_spec_sub(5.0);  // eta_max = 5.0
+            clust_seq_sub.reset(new fastjet::ClusterSequenceArea(particle_in_fatjet, jet_def_sub, ghost_spec_sub));
             Selector selector_subjets;
             if(i != lepton_jet_ind) selector_subjets = SelectorPtMin(ptminSubJets) && SelectorAbsRapMax(etamaxSubJets);
             else selector_subjets = SelectorPtMin(0.);
             subjets = sorted_by_pt(selector_subjets(clust_seq_sub->inclusive_jets()));
             list_sub.clear();
             list_sub = clust_seq_sub->particle_jet_indices(subjets);
+
+            //Print some info about the subjets like number, pt, eta, phi, mass, area, etc.
+            // std::cout << "\tNumber of subjets clustered in fatjet " << i << ": " << subjets.size() << std::endl;
+            // for (unsigned int j = 0; j < subjets.size(); j++){
+            //     const auto &sj = subjets[j];
+            //     std::cout << "\t\tSubjet " << j << ": pt = " << sj.pt() << ", eta = " << sj.eta() << ", phi = " << sj.phi_std() << ", mass = " << sj.m() << ", area = " << sj.area() << std::endl;
+            // }
         }
 
 
@@ -1013,6 +793,7 @@ inline XConeReclusteredJets buildXConeJets(const rvec_f &pt, const rvec_f &eta, 
             XConeJetsCollection.subjets.eta.push_back(subjet.eta());
             XConeJetsCollection.subjets.phi.push_back(subjet.phi_std());
             XConeJetsCollection.subjets.mass.push_back(subjet.m());
+            XConeJetsCollection.subjets.area.push_back(subjet.area());
         }
         XConeJetsCollection.subjets.n_jets = XConeJetsCollection.subjets.pt.size();
         XConeJetsCollection.subjets.R = RSubJets;
@@ -1042,15 +823,15 @@ inline XConeReclusteredJets buildXConeJets(const rvec_f &pt, const rvec_f &eta, 
         }
 
         //Return if the subjets belonging to the fatjet where the lepton is not clusted have a pt smaller than 30GeV or abs(eta) larger than 2.5
-        if (doLeptonSpecific && lepton_jet_ind!=i){
-            for(uint j=0; j<subjets.size(); j++){
-                if(subjets[j].pt() < ptminSubJets || abs(subjets[j].eta()) > etamaxSubJets){
-                    XConeReclusteredJets XConeJetsCollection;
-                    return XConeJetsCollection;
-                }
-            }
+        // if (doLeptonSpecific && lepton_jet_ind!=i){
+        //     for(uint j=0; j<subjets.size(); j++){
+        //         if(subjets[j].pt() < ptminSubJets || abs(subjets[j].eta()) > etamaxSubJets){
+        //             XConeReclusteredJets XConeJetsCollection;
+        //             return XConeJetsCollection;
+        //         }
+        //     }
 
-        }
+        // }
 
 
 
@@ -1216,15 +997,15 @@ inline XConeReclusteredJets buildXConeJets(const rvec_f &pt, const rvec_f &eta, 
     }//loop over fatjets
 
     //Return if the invariant mass of the fatjet where the lepton is clustered is greater than the invariant mass of the fatjet where the lepton is not clustered
-    if (doLeptonSpecific && foundLepton){
-        if(lepton_jet_ind == 0 && fatjets[lepton_jet_ind].m() > fatjets[1].m()){
-            XConeReclusteredJets XConeJetsCollection;
-            return XConeJetsCollection;
-        }else if(lepton_jet_ind == 1 && fatjets[lepton_jet_ind].m() > fatjets[0].m()){
-            XConeReclusteredJets XConeJetsCollection;
-            return XConeJetsCollection;
-        }
-    }
+    // if (doLeptonSpecific && foundLepton){
+    //     if(lepton_jet_ind == 0 && fatjets[lepton_jet_ind].m() > fatjets[1].m()){
+    //         XConeReclusteredJets XConeJetsCollection;
+    //         return XConeJetsCollection;
+    //     }else if(lepton_jet_ind == 1 && fatjets[lepton_jet_ind].m() > fatjets[0].m()){
+    //         XConeReclusteredJets XConeJetsCollection;
+    //         return XConeJetsCollection;
+    //     }
+    // }
 
 
 //     vector<int> list_global_sub;

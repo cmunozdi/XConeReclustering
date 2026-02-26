@@ -44,8 +44,7 @@ output_file_lumi = args.output.replace(".root", "_lumi.root")
 
 ROOT.gInterpreter.Declare('#include "selection_helpers_BoostedTopQuark.h"') ##RUN CRAB
 # Llamar a la función para inicializar `cset`
-ROOT.gInterpreter.ProcessLine("initializeCorrectionSet();")
-ROOT.gInterpreter.ProcessLine("initializeBTagCorrectionSet();")
+ROOT.gInterpreter.ProcessLine(f"initializeCorrectionSet({str(isMC).lower()});")
 # verbosity = ROOT.Experimental.RLogScopedVerbosity(ROOT.Detail.RDF.RDFLogChannel(), ROOT.Experimental.ELogLevel.kInfo)
 
 ROOT.ROOT.EnableImplicitMT()
@@ -56,81 +55,71 @@ rdf_lumi = ROOT.RDataFrame("LuminosityBlocks", input_files)
 rdf_lumi.Snapshot('LuminosityBlocks', output_file_lumi)
 rdf = ROOT.RDataFrame("Events", input_files)
 
-# Only for ttbar samples, add the top pt reweighting
-# rdf = rdf.Define("GenPartTop_pt", "GenPart_pt[(abs(GenPart_pdgId) == 6) && (GenPart_statusFlags & (1<<13)) != 0]") \
-#          .Define("TopPtWeight_dataPowheg", "GenPartTop_pt.size() == 2 ? sqrt( exp(0.0615 - 0.0005*GenPartTop_pt[0]) * exp(0.0615 - 0.0005*GenPartTop_pt[1]) ) : 1.0") \
-#          .Define("TopPtWeight_NNLOpNLOEW", "GenPartTop_pt.size() == 2 ? sqrt((0.103*exp(-0.0118*GenPartTop_pt[0])-0.000134*GenPartTop_pt[0]+0.973)*(0.103*exp(-0.0118*GenPartTop_pt[1])-0.000134*GenPartTop_pt[1]+0.973)) : 1.0") \
-
-#Define b-tagging weights
-rdf = rdf.Define("btagWeight", "compute_btagWeight(Jet_pt, Jet_eta, Jet_hadronFlavour, Jet_btagDeepFlavB)") \
-
 # Define Jet_passTightID
 rdf = rdf.Define("Jet_passJetIdTight", "pass_JetIdTightLepVeto(Jet_eta, Jet_neHEF, Jet_neEmEF, Jet_chMultiplicity, Jet_neMultiplicity, \
                  Jet_chHEF, Jet_muEF, Jet_chEmEF, false)") \
          .Define("Jet_passJetIdTightLepVeto", "pass_JetIdTightLepVeto(Jet_eta, Jet_neHEF, Jet_neEmEF, Jet_chMultiplicity, Jet_neMultiplicity, \
                  Jet_chHEF, Jet_muEF, Jet_chEmEF, true)") \
-        #  .Redefine("Jet_passJetIdTightLepVeto", "std::vector<bool>(Jet_passJetIdTightLepVeto.begin(), Jet_passJetIdTightLepVeto.end())") \
+         .Define("Jet_jetId", "(Jet_passJetIdTight * 2) + (Jet_passJetIdTightLepVeto * 4)")
 
-# Lepton selection: select in the kinematic region of interest 
-        #  .Redefine('Electron_tightId', 'std::vector<bool>(Electron_tightId.begin(), Electron_tightId.end())') \
+# # Define PFCands_pt_puppiWeighted and PFCands_mass_puppiWeighted
+rdf = rdf.Redefine("PFCands_pt", "PFCands_pt * PFCands_puppiWeight") \
+         .Redefine("PFCands_mass", "PFCands_mass * PFCands_puppiWeight")
 
-rdf = rdf.Define('muon', 'triggerLepton(Muon_pt, Muon_eta, Muon_phi, Muon_pdgId, Muon_jetIdx, Muon_tightId, PFCands_pt, PFCands_eta, PFCands_phi, \
-                 PFCands_pdgId, Jet_pt, Jet_eta, Jet_phi, Jet_mass, Jet_passJetIdTight, Jet_rawFactor, Jet_area, Rho_fixedGridRhoFastjetAll, 25, true, false)') \
-         .Define('Electron_tightId', 'Electron_cutBased >= 4') \
-         .Define('electron', 'triggerLepton(Electron_pt, Electron_eta, Electron_phi, Electron_pdgId, Electron_jetIdx, Electron_tightId, \
-                 PFCands_pt, PFCands_eta, PFCands_phi, PFCands_pdgId, Jet_pt, Jet_eta, Jet_phi, Jet_mass, Jet_passJetIdTight, Jet_rawFactor, Jet_area, Rho_fixedGridRhoFastjetAll, 25, false, false)') \
-         .Define('lepton', 'CombineLeptons(muon, electron)') \
-         .Define('n_leptons', 'lepton.n_lep') \
-         .Define('Num_lep_above_15', "Sum(Muon_pt > 15 && abs(Muon_eta) < 2.4 && Muon_tightId) + Sum(Electron_pt > 15 && abs(Electron_eta) < 2.4 && Electron_tightId)") \
-        #  .Filter('Num_lep_above_15 == 1')
-        #  .Filter('n_leptons >=1')
+# Lepton selection: select in the kinematic region of interest. Only events with exactly one lepton are kept
+rdf = rdf.Define('lepton', 'pickLepton(Muon_pt, Muon_eta, Muon_phi, Muon_pdgId, Electron_pt, Electron_eta, Electron_phi, Electron_pdgId)') \
+         .Define('one_lepton', 'lepton.n_lep == 1')
 
-# b-jets selection:
-    #Tight working points:
-         #for 2022_Summer22 is 0.7183
-         #for 2022_Summer22EE is 0.73
-         #for 2023_Summer23 is 0.6553
-         #for 2023_Summer23BPrix is 0.7994
-    #I think is better to check the btagDeepFlavB value after de reclustering (different values for different campaigns) && Jet_btagDeepFlavB>0.6553
-    # Lowering down the cuts (original && (Jet_pt>22.5) && (abs(Jet_eta) <3) Jet_passJetIdTightLepVeto
-rdf = rdf.Define('pseudo_bjet', 'Jet_pt>22.5 && abs(Jet_eta) <3 && Jet_passJetIdTightLepVeto') \
-         .Define('n_pseudo_bjets', 'Sum(pseudo_bjet)') \
-        #  .Filter('n_jets > 0')
+# Apply trigger selection and lepton ID for those events with one lepton
+# According to https://twiki.cern.ch/twiki/bin/view/CMS/EgHLTRunIIISummary#2023 the trigger for Photon should be HLT_Photon200 instead of HLT_Photon175
+rdf = rdf.Define('pass_trigger', 'one_lepton && ((abs(lepton.pdgId[0]) == 13 && HLT_Mu50) || (abs(lepton.pdgId[0]) == 11 && ((lepton.pt[0] > 120 && (HLT_Ele115_CaloIdVT_GsfTrkIdT || HLT_Photon200)) || (lepton.pt[0] > 55 && lepton.pt[0] <= 120 && HLT_Ele30_WPTight_Gsf))))')
 
+# Apply cut to select events with good PVs
+rdf = rdf.Define('good_PV', 'PV_npvsGood > 0')
 
-# Suppression of multijet backgrounds from the production of light-flavor quarks and gluons Get_pTmiss(PFCands_pt, PFCands_phi)
-# rdf = rdf.Redefine('pt_miss', 'PuppiMET_pt') \
-        #  .Filter('pt_miss>50')
+# Apply cut MET filters
+rdf = rdf.Define("pass_MET_filters", "Flag_goodVertices && Flag_globalSuperTightHalo2016Filter && Flag_EcalDeadCellTriggerPrimitiveFilter && Flag_BadPFMuonFilter && Flag_BadPFMuonDzFilter && Flag_hfNoisyHitsFilter && Flag_eeBadScFilter")
 
+# Apply cut over PuppiMET_pt
+rdf = rdf.Define('pass_MET_cut', 'PuppiMET_pt > 35.0')
+
+# Add to the lepton struct the information related to the closest jet, and define one good lepton variable for further selections
+rdf = rdf.Redefine('lepton', 'addLeptonJetInfo(lepton, Muon_jetIdx, Electron_jetIdx, PFCands_pt, PFCands_eta, PFCands_phi, PFCands_pdgId, Jet_pt, Jet_eta, Jet_phi, Jet_mass, Jet_jetId, Jet_rawFactor, Jet_area, Rho_fixedGridRhoFastjetAll, run)') \
+         .Define('one_good_lepton', 'one_lepton && lepton.n_lep_after2Dcuts == 1')
+
+# Define potential b-jet from AK4 jets
+rdf = rdf.Define('potential_bjet_num', f"Sum((Jet_pt>22.5)&&(abs(Jet_eta)<3)&&(Jet_jetId>5))") \
+         .Define('at_least_one_potential_bjet', 'potential_bjet_num > 0')
+# CHANGE BTAGGING WORKING POINT AS NEEDED DEPENDING ON THE YEAR
+rdf = rdf.Define('bjet_num', f"Sum((Jet_pt>22.5)&&(abs(Jet_eta)<3)&&(Jet_jetId>5)&&(Jet_btagPNetB>0.1917))") \
+         .Define('at_least_one_bjet', 'bjet_num > 0')
 
 # XCone jet clustering for PFCands
-rdf = rdf.Define('jet_XConefromPFCands','buildXConeJets(PFCands_pt, PFCands_eta, PFCands_phi, PFCands_mass, PFCands_pdgId)') \
-         .Define('n_fatjets', 'jet_XConefromPFCands.fatjets.n_jets') \
-        #  .Filter('jet_XConefromPFCands.fatjets.n_jets > 0') \
+rdf = rdf.Define('jet_XConefromPFCands','buildXConeJets(lepton, PFCands_pt, PFCands_eta, PFCands_phi, PFCands_mass, PFCands_pdgId)') \
+         .Define('n_fatjets', 'jet_XConefromPFCands.fatjets.n_jets')
+# To reduce a little bit more the size of the output files, we can request two extra conditions: having exactly 3 subjets on the hadronic side, and having a hadtopjet with a pt avobe 325 GeV:
+rdf = rdf.Define('ThreeHadSubjets', 'jet_XConefromPFCands.topjets.n_subjets == 3') \
+         .Define('HadTopJet_pt_above_325', 'jet_XConefromPFCands.topjets.pt > 325')
 
-# # XCone for PFCands: pass detector selection flag: #Reducing cuts as well   && (n_jets > 0) && (pt_miss > 37.5) && (n_fatjets > 0) || lepton_20.n_lep >= 1 || lepton_25.n_lep >= 1 || lepton_30.n_lep >= 1  && (n_pseudo_bjets > 0) && (PuppiMET_pt > 37.5)
-rdf = rdf.Define('pass_detector_selection', '''
-                return  ((lepton.n_lep >= 1) && (Num_lep_above_15 >= 1) && (n_pseudo_bjets > 0) && (PuppiMET_pt > 37.5) && (n_fatjets > 0) && (jet_XConefromPFCands.topjets.n_subjets ==3) && (jet_XConefromPFCands.topjets.pt > 200));
-                ''')
+
+
+# # XCone for PFCands: pass detector selection flag: #Not final cuts, because some observables need to be corrected before cutting definitelly. At least one b-tagged jet is possible for datasets that are not going to be used for b-tagging efficiencies calculation (e.g. Data + MC samples for background estimation: W+jets, Single top, QCD, VV, DY)
+rdf = rdf.Define('pass_detector_selection', 'one_good_lepton && pass_trigger && good_PV && pass_MET_filters && pass_MET_cut && at_least_one_potential_bjet && n_fatjets > 0 && ThreeHadSubjets && HadTopJet_pt_above_325 && at_least_one_bjet')
+#&& at_least_one_bjet --> Not to use on ttbar MC samples for b-tagging efficiency calculation
 
 if isMC:
-    # Only execute this line if we are processing MC  Get_pTmiss(GenCands_pt, GenCands_phi) && (n_gen_fatjets > 0
+    # Only execute this line if we are processing MC
     rdf = rdf.Define('GenCands_jetIdx', 'calculateGenCandsJetIdx(GenJetCands_genCandsIdx, GenJetCands_jetIdx, nGenCands, nGenJet)') \
-             .Define('gen_muon', 'triggerLepton(GenCands_pt, GenCands_eta, GenCands_phi, GenCands_pdgId, GenCands_jetIdx, ROOT::VecOps::RVec<bool>(), GenCands_pt, GenCands_eta, GenCands_phi, GenCands_pdgId, GenJet_pt, GenJet_eta, GenJet_phi, GenJet_mass, ROOT::VecOps::RVec<bool>(GenJet_eta.size(), true), ROOT::VecOps::RVec<float>(GenJet_pt.size(), 0.0), ROOT::VecOps::RVec<float>(GenJet_pt.size(), 0.0), 0, 25, true, false, true)') \
-             .Define('gen_electron', 'triggerLepton(GenCands_pt, GenCands_eta, GenCands_phi, GenCands_pdgId, GenCands_jetIdx, ROOT::VecOps::RVec<bool>(), GenCands_pt, GenCands_eta, GenCands_phi, GenCands_pdgId, GenJet_pt, GenJet_eta, GenJet_phi, GenJet_mass, ROOT::VecOps::RVec<bool>(GenJet_eta.size(), true), ROOT::VecOps::RVec<float>(GenJet_pt.size(), 0.0), ROOT::VecOps::RVec<float>(GenJet_pt.size(), 0.0), 0, 25, false, false, true)') \
-             .Define('gen_lepton', 'CombineLeptons(gen_muon, gen_electron)') \
-             .Define('n_gen_leptons', 'gen_lepton.n_lep') \
-             .Define('num_gen_lep_above_15', "Sum(GenCands_pt > 15 && abs(GenCands_eta) < 2.4 && (abs(GenCands_pdgId)==13 || abs(GenCands_pdgId)==11))") \
-             .Define('gen_pseudo_bjet', 'GenJet_pt>22.5 && abs(GenJet_eta) <3') \
-             .Define('n_gen_pseudo_bjets', 'Sum(gen_pseudo_bjet)') \
-            #  .Redefine('gen_pt_miss', 'GenMET_pt') \
-    rdf = rdf.Define('jet_XConefromGenCands', 'buildXConeJets(GenCands_pt, GenCands_eta, GenCands_phi, GenCands_mass, GenCands_pdgId)') \
+             .Define('gen_lepton', 'GenLepton(GenCands_pt, GenCands_eta, GenCands_phi, GenCands_pdgId, GenCands_jetIdx, GenJet_pt, GenJet_eta, GenJet_phi, GenJet_mass)') \
+             .Define('one_good_gen_lepton', 'gen_lepton.n_lep == 1') \
+             .Define('potential_gen_bjet_num', f"Sum((GenJet_pt>22.5)&&(abs(GenJet_eta)<3))") \
+             .Define('at_least_one_potential_gen_bjet', 'potential_gen_bjet_num > 0') \
+             .Define('jet_XConefromGenCands', 'buildXConeJets(gen_lepton, GenCands_pt, GenCands_eta, GenCands_phi, GenCands_mass, GenCands_pdgId)') \
              .Define('n_gen_fatjets', 'jet_XConefromGenCands.fatjets.n_jets') \
-             .Define('pass_particle_selection', '''
-                    return ((n_gen_leptons >= 1) && (num_gen_lep_above_15 >= 1) && (n_gen_pseudo_bjets > 0) && (GenMET_pt > 37.5) && (n_gen_fatjets > 0) && (jet_XConefromGenCands.topjets.n_subjets ==3) && (jet_XConefromGenCands.topjets.pt > 200));
-                    ''') \
-             .Redefine("GenCands_jetIdx", "std::vector<Short_t>(GenCands_jetIdx.begin(), GenCands_jetIdx.end())") \
-            #  .Filter('jet_XConefromGenCands.fatjets.n_jets > 0')
+             .Define('ThreeHadSubjets_gen', 'jet_XConefromGenCands.topjets.n_subjets == 3') \
+             .Define('HadTopJet_pt_above_325_gen', 'jet_XConefromGenCands.topjets.pt > 325') \
+             .Define('pass_particle_selection', 'one_good_gen_lepton && at_least_one_potential_gen_bjet && n_gen_fatjets > 0 && ThreeHadSubjets_gen && HadTopJet_pt_above_325_gen') \
+             .Redefine("GenCands_jetIdx", "std::vector<Short_t>(GenCands_jetIdx.begin(), GenCands_jetIdx.end())")
 else:
     # If not MC, we don't need to define gen_* variables
     rdf = rdf.Define('pass_particle_selection', 'false')
@@ -162,7 +151,26 @@ rdf = rdf.Filter('pass_detector_selection || pass_particle_selection')
 # opts.fOverwriteIfExists = True
 
 # Create a snapshot with the selected columns
-rdf.Snapshot('Events', output_file_events)#, "", opts)#, columns)
+# Check if rdf has any events before snapshotting
+num_events = rdf.Count().GetValue()
+print(f"Number of events after filtering: {num_events}")
+
+if num_events > 0:
+    rdf.Snapshot('Events', output_file_events)
+else:
+    # If no events, create a minimal empty TTree with a single dummy branch
+    print("Warning: No events passed the selection. Creating minimal empty Events tree.")
+    out_file = ROOT.TFile(output_file_events, "RECREATE")
+    tree = ROOT.TTree("Events", "Empty Events tree")
+    
+    # Create a single dummy branch (e.g., a counter variable)
+    empty_var = ROOT.std.vector('float')()
+    tree.Branch("empty", empty_var)
+    
+    # Write empty tree (no entries, but structure exists)
+    out_file.Write()
+    out_file.Close()
+    print(f"Created minimal empty Events tree in {output_file_events}")
 # output_file.WriteObject(rdf, "Events")
 # output_file.WriteObject(rdf_runs, "Runs")
 # Copiar el árbol "Runs" desde el primer input file
