@@ -58,7 +58,7 @@ git clone -b NTupleProduction_Feb26 git@github.com:cmunozdi/btvNanoAndXCone-prod
 source /cvmfs/cms.cern.ch/common/crab-setup.sh prod # note: this is new w.r.t. 106X instructions
 !voms
 ```
-and continue with ``README.md`` in ``btvNanoAndXCone-prod``
+and continue with ``README.md`` in [``btvNanoAndXCone-prod``](https://github.com/cmunozdi/btvNanoAndXCone-prod/tree/NanoAODv12_22Sep2023)
 
 # Run locally XCone:
 ```bash
