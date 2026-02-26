@@ -9,16 +9,15 @@ git cms-addpkg PhysicsTools/NanoAOD
 scram b -j 9 
 ```
 
-Getting btv production (just to prepare and send to crab the jobs):
-```bash
-git clone https://github.com/cms-btv-pog/btvnano-prod.git
-scram b -j 9 
-source /cvmfs/cms.cern.ch/common/crab-setup.sh prod # note: this is new w.r.t. 106X instructions
-```
-
 Getting XCone reclustering processing:
 ```bash
-git clone https://github.com/cmunozdi/XConeReclustering.git
+source /cvmfs/cms.cern.ch/common/crab-setup.sh prod
+git clone -b NTupleProduction_Feb26 git@github.com:cmunozdi/XConeReclustering.git
+cd XConeReclustering
+```
+Load the env:
+```bash
+source env_xcone.sh
 ```
 Make sure that:
 ```bash
@@ -51,7 +50,17 @@ Once you have set this, you can compile everithing with:
 scram b -j 10
 ```
 
-## Run locally XCone:
+# Run Remotely through CRAB
+## Send Crab Jobs for BTVNano custom with XCone jets
+Getting btv production (just to prepare and send to crab the jobs):
+```bash
+git clone -b NTupleProduction_Feb26 git@github.com:cmunozdi/btvNanoAndXCone-prod.git
+source /cvmfs/cms.cern.ch/common/crab-setup.sh prod # note: this is new w.r.t. 106X instructions
+!voms
+```
+and continue with ``README.md`` in ``btvNanoAndXCone-prod``
+
+# Run locally XCone:
 ```bash
 cmsenv
 source env_xcone.sh
