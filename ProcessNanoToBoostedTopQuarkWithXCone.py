@@ -111,7 +111,7 @@ if isMC:
     # Only execute this line if we are processing MC
     rdf = rdf.Define('GenCands_jetIdx', 'calculateGenCandsJetIdx(GenJetCands_genCandsIdx, GenJetCands_jetIdx, nGenCands, nGenJet)') \
              .Define('gen_lepton', 'GenLepton(GenCands_pt, GenCands_eta, GenCands_phi, GenCands_pdgId, GenCands_jetIdx, GenJet_pt, GenJet_eta, GenJet_phi, GenJet_mass)') \
-             .Define('one_good_gen_lepton', 'gen_lepton.n_lep == 1') \
+             .Define('one_good_gen_lepton', 'gen_lepton.n_lep == 1 && gen_lepton.n_lep_after2Dcuts == 1') \
              .Define('potential_gen_bjet_num', f"Sum((GenJet_pt>22.5)&&(abs(GenJet_eta)<3))") \
              .Define('at_least_one_potential_gen_bjet', 'potential_gen_bjet_num > 0') \
              .Define('jet_XConefromGenCands', 'buildXConeJets(gen_lepton, GenCands_pt, GenCands_eta, GenCands_phi, GenCands_mass, GenCands_pdgId)') \
