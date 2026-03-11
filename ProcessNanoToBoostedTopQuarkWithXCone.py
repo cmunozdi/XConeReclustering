@@ -104,7 +104,7 @@ rdf = rdf.Define('ThreeHadSubjets', 'jet_XConefromPFCands.topjets.n_subjets == 3
 
 
 # # XCone for PFCands: pass detector selection flag: #Not final cuts, because some observables need to be corrected before cutting definitelly. At least one b-tagged jet is possible for datasets that are not going to be used for b-tagging efficiencies calculation (e.g. Data + MC samples for background estimation: W+jets, Single top, QCD, VV, DY)
-rdf = rdf.Define('pass_detector_selection', 'one_good_lepton && pass_trigger && good_PV && pass_MET_filters && pass_MET_cut && at_least_one_potential_bjet && n_fatjets > 0 && ThreeHadSubjets && HadTopJet_pt_above_325 && at_least_one_bjet')
+rdf = rdf.Define('pass_detector_selection', 'one_good_lepton && pass_trigger && good_PV && pass_MET_filters && pass_MET_cut && at_least_one_potential_bjet && n_fatjets > 0 && ThreeHadSubjets && HadTopJet_pt_above_325')
 #&& at_least_one_bjet --> Not to use on ttbar MC samples for b-tagging efficiency calculation
 
 if isMC:
