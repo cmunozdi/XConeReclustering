@@ -65,7 +65,7 @@ inline void initializeCorrectionSet(bool isMC = true, const std::string &jec_ove
     if (!jec_override.empty()) {
         g_jec_tag = jec_override;
     } else {
-        g_jec_tag = g_isMC ? "Summer22EE_22Sep2023_V3_MC" : "Summer22EE_22Sep2023_RunF_V3_DATA"; //"Summer23BPixPrompt23_V3_MC" : "Summer23BPixPrompt23_V3_DATA"; //"Summer22EE_22Sep2023_V3_MC" : "Summer22EE_22Sep2023_RunE_V3_DATA"; //"Summer23Prompt23_V2_MC" : "Summer23Prompt23_V2_DATA";
+        g_jec_tag = g_isMC ? "Summer23BPixPrompt23_V3_MC" : "Summer23BPixPrompt23_V3_DATA"; //"Summer22EE_22Sep2023_V3_MC" : "Summer22EE_22Sep2023_RunE_V3_DATA"; //"Summer23Prompt23_V2_MC" : "Summer23Prompt23_V2_DATA";
     }
     // lvl/algo kept as defaults but can be changed from Python if desired:
     std::cout << "Using JEC tag: " << g_jec_tag << std::endl;
