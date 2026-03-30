@@ -91,7 +91,7 @@ rdf = rdf.Redefine('lepton', 'addLeptonJetInfo(lepton, Muon_jetIdx, Electron_jet
 rdf = rdf.Define('potential_bjet_num', f"Sum((Jet_pt>22.5)&&(abs(Jet_eta)<3)&&(Jet_jetId>5))") \
          .Define('at_least_one_potential_bjet', 'potential_bjet_num > 0')
 # CHANGE BTAGGING WORKING POINT AS NEEDED DEPENDING ON THE YEAR
-rdf = rdf.Define('bjet_num', f"Sum((Jet_pt>22.5)&&(abs(Jet_eta)<3)&&(Jet_jetId>5)&&(Jet_btagPNetB>0.1919))") \
+rdf = rdf.Define('bjet_num', f"Sum((Jet_pt>22.5)&&(abs(Jet_eta)<3)&&(Jet_jetId>5)&&(Jet_btagPNetB>0.2450))") \
          .Define('at_least_one_bjet', 'bjet_num > 0')
 
 # XCone jet clustering for PFCands
